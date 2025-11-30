@@ -36,13 +36,6 @@ definitions:
         example: "2023-10-01T12:00:00Z"
         type: string
     type: object
-  schemas.UpdateKitchenOrderSchema:
-    properties:
-      status_id:
-        type: string
-    required:
-    - status_id
-    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -95,43 +88,6 @@ paths:
           schema:
             $ref: '#/definitions/schemas.KitchenOrderNotFoundErrorSchema'
       summary: Get a kitchenOrder by ID
-      tags:
-      - KitchenOrders
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: KitchenOrder ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Updated kitchenOrder data
-        in: body
-        name: kitchenOrder
-        required: true
-        schema:
-          $ref: '#/definitions/schemas.UpdateKitchenOrderSchema'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/schemas.KitchenOrderResponseSchema'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/schemas.InvalidKitchenOrderDataErrorSchema'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/schemas.KitchenOrderNotFoundErrorSchema'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/schemas.ErrorMessageSchema'
-      summary: Update a kitchenOrder by ID
       tags:
       - KitchenOrders
 schemes:

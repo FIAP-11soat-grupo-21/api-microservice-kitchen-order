@@ -41,6 +41,16 @@ type Config struct {
 	Google struct {
 		ProjectID string
 	}
+	MessageBroker struct {
+		Type string
+		RabbitMQ struct {
+			URL      string
+			Exchange string
+		}
+		SQS struct {
+			QueueURL string
+		}
+	}
 }
 
 var (
@@ -103,6 +113,17 @@ func (c *Config) Load() {
 	c.AWS.S3.PresignExpiration = getEnv("AWS_S3_PRESIGN_EXPIRATION")
 
 	c.Google.ProjectID = getEnv("GOOGLE_PROJECT_ID")
+
+	// Message Broker configuration
+	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
+	
+	if c.MessageBroker.Type == "rabbitmq" {
+		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
+		c.MessageBroker.RabbitMQ.Exchange = os.Getenv("RABBITMQ_EXCHANGE") // Optional
+	} else if c.MessageBroker.Type == "sqs" {
+		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
+		// AWS credentials já estão configuradas acima
+	}
 }
 
 func (c *Config) IsProduction() bool {

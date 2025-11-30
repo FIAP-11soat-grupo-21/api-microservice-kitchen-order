@@ -85,62 +85,6 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "put": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "KitchenOrders"
-                ],
-                "summary": "Update a kitchenOrder by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "KitchenOrder ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated kitchenOrder data",
-                        "name": "kitchenOrder",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schemas.UpdateKitchenOrderSchema"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/schemas.KitchenOrderResponseSchema"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/schemas.InvalidKitchenOrderDataErrorSchema"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/schemas.KitchenOrderNotFoundErrorSchema"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/schemas.ErrorMessageSchema"
-                        }
-                    }
-                }
             }
         }
     },
@@ -194,17 +138,6 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string",
                     "example": "2023-10-01T12:00:00Z"
-                }
-            }
-        },
-        "schemas.UpdateKitchenOrderSchema": {
-            "type": "object",
-            "required": [
-                "status_id"
-            ],
-            "properties": {
-                "status_id": {
-                    "type": "string"
                 }
             }
         }

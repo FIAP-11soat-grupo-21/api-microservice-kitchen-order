@@ -9,6 +9,29 @@ services:
       - postgres:/var/lib/postgresql/data
     networks:
       - backbone
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  rabbitmq:
+    image: rabbitmq:4.2.1-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    networks:
+      - backbone
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   api:
     build: 
       context: .
@@ -16,8 +39,12 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_started
     env_file:
       - .env
     volumes:
@@ -42,6 +69,7 @@ services:
 volumes:
   postgres:
   minio:
+  rabbitmq:
 
 networks:
   backbone:
