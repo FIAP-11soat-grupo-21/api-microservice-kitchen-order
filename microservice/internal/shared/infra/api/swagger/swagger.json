@@ -1,0 +1,209 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "This is an API for a tech challenge.",
+        "title": "Tech Challenge API",
+        "contact": {},
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/v1",
+    "paths": {
+        "/kitchen-orders/": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KitchenOrders"
+                ],
+                "summary": "List all kitchenOrders",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schemas.KitchenOrderResponseSchema"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.ErrorMessageSchema"
+                        }
+                    }
+                }
+            }
+        },
+        "/kitchen-orders/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KitchenOrders"
+                ],
+                "summary": "Get a kitchenOrder by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "KitchenOrder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.KitchenOrderResponseSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.InvalidKitchenOrderDataErrorSchema"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.KitchenOrderNotFoundErrorSchema"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KitchenOrders"
+                ],
+                "summary": "Update a kitchenOrder by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "KitchenOrder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated kitchenOrder data",
+                        "name": "kitchenOrder",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schemas.UpdateKitchenOrderSchema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.KitchenOrderResponseSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.InvalidKitchenOrderDataErrorSchema"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.KitchenOrderNotFoundErrorSchema"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schemas.ErrorMessageSchema"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "schemas.ErrorMessageSchema": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Internal server error"
+                }
+            }
+        },
+        "schemas.InvalidKitchenOrderDataErrorSchema": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Invalid kitchen order data"
+                }
+            }
+        },
+        "schemas.KitchenOrderNotFoundErrorSchema": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Kitchen order not found"
+                }
+            }
+        },
+        "schemas.KitchenOrderResponseSchema": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-10-01T12:00:00Z"
+                },
+                "order_id": {
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "001"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "Pronto"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-10-01T12:00:00Z"
+                }
+            }
+        },
+        "schemas.UpdateKitchenOrderSchema": {
+            "type": "object",
+            "required": [
+                "status_id"
+            ],
+            "properties": {
+                "status_id": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,4 @@
+.env
+tmp
+uploads/*
+!uploads/default_product_image.webp
