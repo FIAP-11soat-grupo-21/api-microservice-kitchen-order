@@ -13,10 +13,10 @@ container_environment_variables = {
   AWS_DYNAMO_TABLE_NAME : "kitchen-order-api-table"
 }
 
-container_secrets = {}
-health_check_path = "/health"
+container_secrets     = {}
+health_check_path     = "/health"
 task_role_policy_arns = []
-alb_is_internal = true
+alb_is_internal       = true
 
 # =======================================================
 # Configurações do API Gateaway
@@ -28,7 +28,20 @@ apigw_payload_format_version = "1.0"
 apigw_connection_type        = "VPC_LINK"
 
 # Definição dos endpoints da API
-api_endpoints = {}
+api_endpoints = {
+  health_check = {
+    route_key  = "GET /health"
+    restricted = false
+  },
+  get_kitchen_order = {
+    route_key  = "GET /kitchen-orders/{id}"
+    restricted = false
+  },
+  get_all_kitchen_orders = {
+    route_key  = "GET /kitchen-orders"
+    restricted = false
+  }
+}
 
 # =======================================================
 # Configurações do dynamoDB
