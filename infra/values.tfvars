@@ -13,13 +13,13 @@ container_environment_variables = {
   AWS_DYNAMO_TABLE_NAME : "kitchen-order-api-table"
 }
 
-container_secrets     = {}
-health_check_path     = "/health"
+container_secrets = {}
+health_check_path = "/health"
 task_role_policy_arns = [
   "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
   "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 ]
-alb_is_internal       = true
+alb_is_internal = true
 
 # =======================================================
 # Configurações do API Gateaway
@@ -83,7 +83,7 @@ dynamodb_range_keys = [
 # Configurações do SQS
 # =======================================================
 sqs_delay_seconds              = 0
-sqs_message_retention_seconds  = 86400   # 1 dia
+sqs_message_retention_seconds  = 86400 # 1 dia
 sqs_receive_wait_time_seconds  = 10
 sqs_visibility_timeout_seconds = 30
 
