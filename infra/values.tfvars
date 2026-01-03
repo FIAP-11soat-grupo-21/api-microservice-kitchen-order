@@ -29,6 +29,10 @@ apigw_connection_type        = "VPC_LINK"
 
 # Definição dos endpoints da API
 api_endpoints = {
+  health_check = {
+    route_key  = "GET /health"
+    restricted = false
+  },
   get_kitchen_order = {
     route_key  = "GET /kitchen-orders/{id}"
     restricted = false
