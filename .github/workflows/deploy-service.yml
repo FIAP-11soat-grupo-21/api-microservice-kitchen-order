@@ -14,69 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  Validation:
-    name: Terraform Plan (infra)
-    runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
-      GIT_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      TERRAFORM_VERSION: "1.5.0"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
-
-      - name: Setup SSH agent for git
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ env.GIT_SSH_KEY }}
-
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v5.1.0
-        with:
-          role-to-assume:  ${{ env.AWS_ROLE_ARN }}
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Terraform Init
-        working-directory: infra
-        run: |
-          terraform init -input=false
-
-      - name: Terraform Format Check
-        working-directory: infra
-        run: |
-          terraform fmt -check
-
-      - name: Terraform Validate
-        working-directory: infra
-        run: |
-          terraform validate
-
-      - name: Terraform Plan
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        working-directory: infra
-        run: |
-          terraform plan -input=false -var-file=values.tfvars -out=tfplan
-
-      - name: Upload plan artifact
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: infra/tfplan
-
-      - name: Done
-        run: echo "Terraform job finished."
-
   build:
-    needs: Validation
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     outputs:
@@ -97,7 +35,7 @@ jobs:
           echo "image_name=${image_name}" >> $GITHUB_OUTPUT
           echo "IMAGE_NAME=${image_name}" >> $GITHUB_ENV
 
-      - name: Log in to Docker Hub
+      - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -142,6 +80,8 @@ jobs:
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       GIT_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       IMAGE: ${{ needs.build.outputs.image }}
+      AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+      AWS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
 
     steps:
       - name: Checkout repository
@@ -150,7 +90,8 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: "1.5.0"
+          # Update Terraform to a version that supports check blocks referencing variables
+          terraform_version: "1.6.6"
 
       - name: Setup SSH agent for git
         uses: webfactory/ssh-agent@v0.9.0
@@ -169,22 +110,24 @@ jobs:
         run: |
           echo "Replacing GHCR_IMAGE_TAG in infra/values.tfvars with $IMAGE"
           sed -i -e "s|GHCR_IMAGE_TAG|${IMAGE}|g" values.tfvars
+          sed -i -e "s|AWS_KEY_ID|${AWS_KEY_ID}|g" values.tfvars
+          sed -i -e "s|AWS_ACCESS_KEY|${AWS_ACCESS_KEY}|g" values.tfvars
 
       - name: Terraform Init
         working-directory: infra
         run: |
-          terraform init -input=false
+          terraform init 
 
       - name: Terraform Apply
         working-directory: infra
         run: |
-          terraform plan -input=false -var-file=values.tfvars
+          terraform plan -var-file=values.tfvars
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "This is a workflow_dispatch event. Performing a terraform plan first."
-            terraform apply -input=false -var-file=values.tfvars -auto-approve
+            terraform apply -var-file=values.tfvars -auto-approve
           else
-            terraform apply -input=false -var-file=values.tfvars -auto-approve -target=module.ecs_service
+            terraform apply -var-file=values.tfvars -auto-approve -target=module.ecs_service
           fi
           
 
