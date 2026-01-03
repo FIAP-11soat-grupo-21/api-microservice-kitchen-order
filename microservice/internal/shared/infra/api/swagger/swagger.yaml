@@ -1,0 +1,95 @@
+basePath: /v1
+definitions:
+  schemas.ErrorMessageSchema:
+    properties:
+      error:
+        example: Internal server error
+        type: string
+    type: object
+  schemas.InvalidKitchenOrderDataErrorSchema:
+    properties:
+      error:
+        example: Invalid kitchen order data
+        type: string
+    type: object
+  schemas.KitchenOrderNotFoundErrorSchema:
+    properties:
+      error:
+        example: Kitchen order not found
+        type: string
+    type: object
+  schemas.KitchenOrderResponseSchema:
+    properties:
+      created_at:
+        example: "2023-10-01T12:00:00Z"
+        type: string
+      order_id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+      slug:
+        example: "001"
+        type: string
+      status:
+        example: Pronto
+        type: string
+      updated_at:
+        example: "2023-10-01T12:00:00Z"
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is an API for a tech challenge.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Tech Challenge API
+  version: "1.0"
+paths:
+  /kitchen-orders/:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/schemas.KitchenOrderResponseSchema'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schemas.ErrorMessageSchema'
+      summary: List all kitchenOrders
+      tags:
+      - KitchenOrders
+  /kitchen-orders/{id}:
+    get:
+      parameters:
+      - description: KitchenOrder ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schemas.KitchenOrderResponseSchema'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schemas.InvalidKitchenOrderDataErrorSchema'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schemas.KitchenOrderNotFoundErrorSchema'
+      summary: Get a kitchenOrder by ID
+      tags:
+      - KitchenOrders
+schemes:
+- http
+swagger: "2.0"

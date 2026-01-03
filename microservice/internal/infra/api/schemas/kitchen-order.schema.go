@@ -1,0 +1,25 @@
+package schemas
+
+import (
+	"time"
+)
+
+type UpdateKitchenOrderSchema struct {
+	StatusID string `json:"status_id" binding:"required"`
+}
+
+type KitchenOrderResponseSchema struct {
+	OrderID   string     `json:"order_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Slug      string     `json:"slug" example:"001"`
+	Status    string     `json:"status" example:"Pronto"`
+	CreatedAt time.Time  `json:"created_at" example:"2023-10-01T12:00:00Z"`
+	UpdatedAt *time.Time `json:"updated_at" example:"2023-10-01T12:00:00Z"`
+}
+
+type KitchenOrderNotFoundErrorSchema struct {
+	Error string `json:"error" example:"Kitchen order not found"`
+}
+
+type InvalidKitchenOrderDataErrorSchema struct {
+	Error string `json:"error" example:"Invalid kitchen order data"`
+}

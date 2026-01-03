@@ -1,0 +1,135 @@
+package env
+
+import (
+	"log"
+	"os"
+	"sync"
+
+	"github.com/joho/godotenv"
+)
+
+type Config struct {
+	GoEnv        string
+	APIPort      string
+	APIHost      string
+	APIUrl       string
+	APIUploadUrl string
+	Database     struct {
+		RunMigrations bool
+		Host          string
+		Name          string
+		Port          string
+		Username      string
+		Password      string
+	}
+	PaymentGateway struct {
+		AccessToken   string
+		CollectorID   string
+		ExternalPosID string
+		ApiBaseURL    string
+	}
+	AWS struct {
+		Region          string
+		AccessKeyID     string
+		SecretAccessKey string
+		S3              struct {
+			BucketName        string
+			Endpoint          string
+			PresignExpiration string
+		}
+	}
+	Google struct {
+		ProjectID string
+	}
+	MessageBroker struct {
+		Type     string
+		RabbitMQ struct {
+			URL      string
+			Exchange string
+		}
+		SQS struct {
+			QueueURL string
+		}
+	}
+}
+
+var (
+	instance *Config
+	once     sync.Once
+)
+
+func GetConfig() *Config {
+	once.Do(func() {
+		instance = &Config{}
+		instance.Load()
+	})
+	return instance
+}
+
+func getEnv(key string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		log.Fatalf("Environment variable %s is not set", key)
+	}
+	return value
+}
+
+func (c *Config) Load() {
+	dotEnvPath := ".env"
+	_, err := os.Stat(dotEnvPath)
+
+	if err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	c.GoEnv = getEnv("GO_ENV")
+
+	c.APIPort = getEnv("API_PORT")
+	c.APIHost = getEnv("API_HOST")
+	c.APIUploadUrl = getEnv("API_UPLOAD_URL")
+	c.APIUrl = c.APIHost + ":" + c.APIPort
+
+	c.Database.RunMigrations = getEnv("DB_RUN_MIGRATIONS") == "true"
+	c.Database.Host = getEnv("DB_HOST")
+	c.Database.Name = getEnv("DB_NAME")
+	c.Database.Port = getEnv("DB_PORT")
+	c.Database.Username = getEnv("DB_USERNAME")
+	c.Database.Password = getEnv("DB_PASSWORD")
+
+	c.PaymentGateway.AccessToken = getEnv("ACCESS_TOKEN")
+	c.PaymentGateway.CollectorID = getEnv("COLLECTOR_ID")
+	c.PaymentGateway.ExternalPosID = getEnv("EXTERNAL_POS_ID")
+	c.PaymentGateway.ApiBaseURL = getEnv("MERCADOPAGO_API_URL")
+
+	c.AWS.Region = getEnv("AWS_REGION")
+	c.AWS.AccessKeyID = getEnv("AWS_ACCESS_KEY_ID")
+	c.AWS.SecretAccessKey = getEnv("AWS_SECRET_ACCESS_KEY")
+
+	c.AWS.S3.BucketName = getEnv("AWS_S3_BUCKET_NAME")
+	c.AWS.S3.Endpoint = getEnv("AWS_S3_ENDPOINT")
+	c.AWS.S3.PresignExpiration = getEnv("AWS_S3_PRESIGN_EXPIRATION")
+
+	c.Google.ProjectID = getEnv("GOOGLE_PROJECT_ID")
+
+	// Message Broker configuration
+	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
+
+	if c.MessageBroker.Type == "rabbitmq" {
+		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
+		c.MessageBroker.RabbitMQ.Exchange = os.Getenv("RABBITMQ_EXCHANGE") // Optional
+	} else if c.MessageBroker.Type == "sqs" {
+		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
+		// AWS credentials já estão configuradas acima
+	}
+}
+
+func (c *Config) IsProduction() bool {
+	return c.GoEnv == "production"
+}
+
+func (c *Config) IsDevelopment() bool {
+	return c.GoEnv == "development"
+}
