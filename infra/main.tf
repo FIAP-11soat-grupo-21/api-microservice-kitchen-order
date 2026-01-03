@@ -40,6 +40,18 @@ module "dynamodb_table" {
   range_key = var.dynamodb_range_keys
 }
 
+module "sqs_kitchen_orders" {
+  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/SQS?ref=main"
+
+  queue_name                 = "${var.application_name}-queue"
+  delay_seconds              = var.sqs_delay_seconds
+  message_retention_seconds  = var.sqs_message_retention_seconds
+  receive_wait_time_seconds  = var.sqs_receive_wait_time_seconds
+  visibility_timeout_seconds = var.sqs_visibility_timeout_seconds
+
+  project_common_tags = data.terraform_remote_state.infra.outputs.project_common_tags
+}
+
 module "kitchen_order_api" {
   source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
 
@@ -57,7 +69,9 @@ module "kitchen_order_api" {
   ecs_container_environment_variables = merge(var.container_environment_variables,
     {
       AWS_COGNITO_USER_POOL_ID : module.cognito.user_pool_id,
-      AWS_COGNITO_USER_POOL_CLIENT_ID : module.cognito.user_pool_client_id
+      AWS_COGNITO_USER_POOL_CLIENT_ID : module.cognito.user_pool_client_id,
+      SQS_QUEUE_URL : module.sqs_kitchen_orders.sqs_queue_url,
+      SQS_QUEUE_ARN : module.sqs_kitchen_orders.sqs_queue_arn
   })
 
   private_subnet_ids      = data.terraform_remote_state.infra.outputs.private_subnet_id
