@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"tech_challenge/internal/application/controllers"
@@ -58,7 +59,9 @@ func (h *KitchenOrderHandler) FindAll(ctx *gin.Context) {
 	kitchenOrders, err := h.kitchenOrderController.FindAll(filter)
 
 	if err != nil {
-		ctx.Error(err)
+		if ctxErr := ctx.Error(err); ctxErr != nil {
+			log.Printf("Error setting context error: %v", ctxErr)
+		}
 		return
 	}
 
@@ -92,7 +95,9 @@ func (h *KitchenOrderHandler) FindByID(ctx *gin.Context) {
 	kitchenOrder, err := h.kitchenOrderController.FindByID(kitchenOrderID)
 
 	if err != nil {
-		ctx.Error(err)
+		if ctxErr := ctx.Error(err); ctxErr != nil {
+			log.Printf("Error setting context error: %v", ctxErr)
+		}
 		return
 	}
 

@@ -13,10 +13,10 @@ import (
 
 // Mock DataSource para testes
 type MockKitchenOrderDataSource struct {
-	insertFunc    func(daos.KitchenOrderDAO) error
-	findByIDFunc  func(string) (daos.KitchenOrderDAO, error)
-	findAllFunc   func(dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error)
-	updateFunc    func(daos.KitchenOrderDAO) error
+	insertFunc   func(daos.KitchenOrderDAO) error
+	findByIDFunc func(string) (daos.KitchenOrderDAO, error)
+	findAllFunc  func(dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error)
+	updateFunc   func(daos.KitchenOrderDAO) error
 }
 
 func (m *MockKitchenOrderDataSource) Insert(order daos.KitchenOrderDAO) error {

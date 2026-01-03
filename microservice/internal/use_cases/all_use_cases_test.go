@@ -13,16 +13,16 @@ func TestFindAllKitchenOrdersUseCase_Success(t *testing.T) {
 	// Arrange
 	dataStore := NewMockDataStore()
 	status := dataStore.orderStatuses[0] // Status "Recebido"
-	
+
 	order1, _ := entities.NewKitchenOrder(
 		"id1", "order1", "001", status, time.Now(), nil,
 	)
 	order2, _ := entities.NewKitchenOrder(
 		"id2", "order2", "002", status, time.Now(), nil,
 	)
-	
+
 	dataStore.kitchenOrders = []entities.KitchenOrder{*order1, *order2}
-	
+
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	useCase := NewFindAllKitchenOrderUseCase(kitchenOrderGateway)
 	filter := dtos.KitchenOrderFilter{}
@@ -45,13 +45,13 @@ func TestFindKitchenOrderByIDUseCase_Success(t *testing.T) {
 	orderID := "550e8400-e29b-41d4-a716-446655440000"
 	dataStore := NewMockDataStore()
 	status := dataStore.orderStatuses[0] // Status "Recebido"
-	
+
 	expectedOrder, _ := entities.NewKitchenOrder(
 		orderID, "order123", "001", status, time.Now(), nil,
 	)
-	
+
 	dataStore.kitchenOrders = []entities.KitchenOrder{*expectedOrder}
-	
+
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	useCase := NewFindKitchenOrderByIDUseCase(kitchenOrderGateway)
 
@@ -75,13 +75,13 @@ func TestUpdateKitchenOrderUseCase_Success(t *testing.T) {
 
 	dataStore := NewMockDataStore()
 	originalStatus := dataStore.orderStatuses[0] // Status "Recebido"
-	
+
 	existingOrder, _ := entities.NewKitchenOrder(
 		orderID, "order123", "001", originalStatus, time.Now(), nil,
 	)
-	
+
 	dataStore.kitchenOrders = []entities.KitchenOrder{*existingOrder}
-	
+
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
 

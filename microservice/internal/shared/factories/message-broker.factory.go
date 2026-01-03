@@ -48,4 +48,3 @@ func NewMessageBroker(ctx context.Context) (interfaces.MessageBroker, error) {
 		return nil, fmt.Errorf("unsupported message broker type: %s", brokerType)
 	}
 }
-

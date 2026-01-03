@@ -42,7 +42,7 @@ type Config struct {
 		ProjectID string
 	}
 	MessageBroker struct {
-		Type string
+		Type     string
 		RabbitMQ struct {
 			URL      string
 			Exchange string
@@ -116,7 +116,7 @@ func (c *Config) Load() {
 
 	// Message Broker configuration
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
-	
+
 	if c.MessageBroker.Type == "rabbitmq" {
 		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
 		c.MessageBroker.RabbitMQ.Exchange = os.Getenv("RABBITMQ_EXCHANGE") // Optional

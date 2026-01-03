@@ -182,4 +182,3 @@ func SerializeMessage(data interface{}) ([]byte, error) {
 func DeserializeMessage(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
-

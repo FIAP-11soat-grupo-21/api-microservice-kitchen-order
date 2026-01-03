@@ -30,7 +30,7 @@ func TestToResponseListOrderStatus(t *testing.T) {
 	status2, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_PREPARING_ID, "Em preparação")
 	status3, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_READY_ID, "Pronto")
 	status4, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_FINISHED_ID, "Finalizado")
-	
+
 	statuses := []entities.OrderStatus{*status1, *status2, *status3, *status4}
 
 	// Act

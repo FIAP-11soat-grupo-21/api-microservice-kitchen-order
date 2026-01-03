@@ -12,7 +12,7 @@ import (
 )
 
 type KitchenOrderConsumer struct {
-	broker                interfaces.MessageBroker
+	broker                 interfaces.MessageBroker
 	kitchenOrderController controllers.KitchenOrderController
 }
 
@@ -22,7 +22,7 @@ func NewKitchenOrderConsumer(broker interfaces.MessageBroker) *KitchenOrderConsu
 	kitchenOrderController := controllers.NewKitchenOrderController(kitchenOrderDataSource, orderStatusDataSource)
 
 	return &KitchenOrderConsumer{
-		broker:                broker,
+		broker:                 broker,
 		kitchenOrderController: *kitchenOrderController,
 	}
 }
@@ -78,7 +78,11 @@ func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.
 		log.Printf("Kitchen order created successfully: %s", kitchenOrder.ID)
 	}
 
-	responseBody, _ := json.Marshal(response)
+	responseBody, marshalErr := json.Marshal(response)
+	if marshalErr != nil {
+		log.Printf("Error marshaling response: %v", marshalErr)
+		return err
+	}
 	responseMsg := interfaces.Message{
 		ID:      msg.ID,
 		Body:    responseBody,
@@ -86,7 +90,9 @@ func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.
 	}
 
 	if responseQueue, ok := msg.Headers["reply-to"]; ok {
-		c.broker.Publish(ctx, responseQueue, responseMsg)
+		if publishErr := c.broker.Publish(ctx, responseQueue, responseMsg); publishErr != nil {
+			log.Printf("Error publishing response message: %v", publishErr)
+		}
 	}
 
 	return err
@@ -116,7 +122,11 @@ func (c *KitchenOrderConsumer) handleUpdate(ctx context.Context, msg interfaces.
 		log.Printf("Kitchen order updated successfully: %s", kitchenOrder.ID)
 	}
 
-	responseBody, _ := json.Marshal(response)
+	responseBody, marshalErr := json.Marshal(response)
+	if marshalErr != nil {
+		log.Printf("Error marshaling response: %v", marshalErr)
+		return err
+	}
 	responseMsg := interfaces.Message{
 		ID:      msg.ID,
 		Body:    responseBody,
@@ -124,9 +134,10 @@ func (c *KitchenOrderConsumer) handleUpdate(ctx context.Context, msg interfaces.
 	}
 
 	if responseQueue, ok := msg.Headers["reply-to"]; ok {
-		c.broker.Publish(ctx, responseQueue, responseMsg)
+		if publishErr := c.broker.Publish(ctx, responseQueue, responseMsg); publishErr != nil {
+			log.Printf("Error publishing response message: %v", publishErr)
+		}
 	}
 
 	return err
 }
-

@@ -13,7 +13,7 @@ func TestToResponse(t *testing.T) {
 	status, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
 	now := time.Now()
 	updatedAt := now.Add(time.Hour)
-	
+
 	kitchenOrder, _ := entities.NewKitchenOrder(
 		"test-id",
 		"order-123",
@@ -64,7 +64,7 @@ func TestToResponse_NilUpdatedAt(t *testing.T) {
 	// Arrange
 	status, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
 	now := time.Now()
-	
+
 	kitchenOrder, _ := entities.NewKitchenOrder(
 		"test-id",
 		"order-123",
@@ -88,10 +88,10 @@ func TestToResponseList(t *testing.T) {
 	status1, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
 	status2, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_PREPARING_ID, "Em preparação")
 	now := time.Now()
-	
+
 	order1, _ := entities.NewKitchenOrder("id1", "order1", "001", *status1, now, nil)
 	order2, _ := entities.NewKitchenOrder("id2", "order2", "002", *status2, now, nil)
-	
+
 	orders := []entities.KitchenOrder{*order1, *order2}
 
 	// Act

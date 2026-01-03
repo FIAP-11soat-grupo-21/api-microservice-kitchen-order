@@ -20,7 +20,8 @@ func SeedOrderStatus(db *gorm.DB) {
 	for _, status := range defaults {
 		var existing models.OrderStatusModel
 		if err := db.Where("id = ?", status.ID).First(&existing).Error; err == gorm.ErrRecordNotFound {
-			if err := db.Create(&status).Error; err != nil {
+			statusCopy := status // Create a copy to avoid memory aliasing
+			if err := db.Create(&statusCopy).Error; err != nil {
 				log.Printf("Erro ao criar status %s: %v", status.ID, err)
 			} else {
 				log.Printf("Status %s criado", status.ID)

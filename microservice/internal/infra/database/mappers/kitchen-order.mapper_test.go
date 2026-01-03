@@ -12,7 +12,7 @@ func TestFromDAOToModelKitchenOrder(t *testing.T) {
 	// Arrange
 	now := time.Now()
 	updatedAt := now.Add(time.Hour)
-	
+
 	dao := daos.KitchenOrderDAO{
 		ID:      "test-id",
 		OrderID: "order-123",
@@ -62,7 +62,7 @@ func TestFromModelToDAOKitchenOrder(t *testing.T) {
 	// Arrange
 	now := time.Now()
 	updatedAt := now.Add(time.Hour)
-	
+
 	model := &models.KitchenOrderModel{
 		ID:       "test-id",
 		OrderID:  "order-123",
@@ -116,7 +116,7 @@ func TestFromModelToDAOKitchenOrder(t *testing.T) {
 func TestFromModelArrayToDAOArrayKitchenOrder(t *testing.T) {
 	// Arrange
 	now := time.Now()
-	
+
 	models := []*models.KitchenOrderModel{
 		{
 			ID:       "test-id-1",

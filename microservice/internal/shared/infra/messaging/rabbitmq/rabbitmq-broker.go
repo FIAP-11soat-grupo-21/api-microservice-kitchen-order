@@ -49,12 +49,12 @@ func (r *RabbitMQBroker) Connect(ctx context.Context) error {
 	if r.config.Exchange != "" {
 		err = r.channel.ExchangeDeclare(
 			r.config.Exchange, // name
-			"topic",          // type
-			true,             // durable
-			false,            // auto-deleted
-			false,            // internal
-			false,            // no-wait
-			nil,              // arguments
+			"topic",           // type
+			true,              // durable
+			false,             // auto-deleted
+			false,             // internal
+			false,             // no-wait
+			nil,               // arguments
 		)
 		if err != nil {
 			r.channel.Close()
@@ -202,9 +202,13 @@ func (r *RabbitMQBroker) Subscribe(ctx context.Context, queue string, handler in
 
 				if err := handler(ctx, msg); err != nil {
 					log.Printf("Error processing message: %v", err)
-					d.Nack(false, true) // Requeue on error
+					if nackErr := d.Nack(false, true); nackErr != nil {
+						log.Printf("Error nacking message: %v", nackErr)
+					}
 				} else {
-					d.Ack(false)
+					if ackErr := d.Ack(false); ackErr != nil {
+						log.Printf("Error acking message: %v", ackErr)
+					}
 				}
 			}
 		}
@@ -232,4 +236,3 @@ func SerializeMessage(data interface{}) ([]byte, error) {
 func DeserializeMessage(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
-

@@ -78,13 +78,13 @@ func TestIsValidUUID_ValidUUIDs(t *testing.T) {
 func TestIsValidUUID_InvalidUUIDs(t *testing.T) {
 	// Arrange
 	invalidUUIDs := []string{
-		"",                                      // Empty string
-		"invalid-uuid",                          // Invalid format
-		"550e8400-e29b-41d4-a716",              // Too short
+		"",                        // Empty string
+		"invalid-uuid",            // Invalid format
+		"550e8400-e29b-41d4-a716", // Too short
 		"550e8400-e29b-41d4-a716-446655440000-extra", // Too long
-		"550e8400-e29b-41d4-a716-44665544000g", // Invalid character
-		"550e8400-e29b-41d4-a716-44665544000",  // Wrong length in last segment
-		"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // Invalid characters
+		"550e8400-e29b-41d4-a716-44665544000g",       // Invalid character
+		"550e8400-e29b-41d4-a716-44665544000",        // Wrong length in last segment
+		"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",       // Invalid characters
 	}
 
 	// Act & Assert
@@ -132,9 +132,9 @@ func TestIsValidUUID_AndIsNotValidUUID_AreOpposite(t *testing.T) {
 	// Arrange
 	testUUIDs := []string{
 		"550e8400-e29b-41d4-a716-446655440000", // Valid
-		"invalid-uuid",                          // Invalid
+		"invalid-uuid",                         // Invalid
 		NewUUIDV4(),                            // Valid (generated)
-		"",                                      // Invalid (empty)
+		"",                                     // Invalid (empty)
 	}
 
 	// Act & Assert

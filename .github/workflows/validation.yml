@@ -46,7 +46,7 @@ jobs:
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-          golangci-lint run --out-format json > golangci-lint-report.json
+          golangci-lint run --config .golangci.yml --out-format json > golangci-lint-report.json
 
       - name: Run Gosec Security Scanner
         working-directory: microservice

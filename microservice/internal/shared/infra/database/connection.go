@@ -99,10 +99,12 @@ func Close() {
 }
 
 func RunMigrations() {
-	dbConnection.AutoMigrate(
+	if err := dbConnection.AutoMigrate(
 		&models.KitchenOrderModel{},
 		&models.OrderStatusModel{},
-	)
+	); err != nil {
+		log.Printf("Error running migrations: %v", err)
+	}
 }
 
 func SeedDefaults() {

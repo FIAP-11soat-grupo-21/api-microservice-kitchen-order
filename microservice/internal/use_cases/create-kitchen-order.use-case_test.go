@@ -67,21 +67,21 @@ func TestCreateKitchenOrderUseCase_StatusNotFound(t *testing.T) {
 func TestCreateKitchenOrderUseCase_SlugGeneration(t *testing.T) {
 	// Arrange - Simula 2 pedidos já existentes no dia
 	dataStore := NewMockDataStore()
-	
+
 	// Adiciona pedidos existentes
 	existingOrder1, _ := entities.NewKitchenOrder(
-		"id1", "order1", "001", 
+		"id1", "order1", "001",
 		dataStore.orderStatuses[0], // Status "Recebido"
 		time.Now(), nil,
 	)
 	existingOrder2, _ := entities.NewKitchenOrder(
-		"id2", "order2", "002", 
+		"id2", "order2", "002",
 		dataStore.orderStatuses[0], // Status "Recebido"
 		time.Now(), nil,
 	)
-	
+
 	dataStore.kitchenOrders = []entities.KitchenOrder{*existingOrder1, *existingOrder2}
-	
+
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
 

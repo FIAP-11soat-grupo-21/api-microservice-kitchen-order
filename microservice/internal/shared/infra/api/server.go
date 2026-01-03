@@ -84,6 +84,8 @@ func Init() {
 	<-sigChan
 	log.Println("Shutting down...")
 
-	broker.Stop()
+	if err := broker.Stop(); err != nil {
+		log.Printf("Error stopping broker: %v", err)
+	}
 	cancel()
 }
