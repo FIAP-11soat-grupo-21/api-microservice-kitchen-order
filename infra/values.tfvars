@@ -13,10 +13,10 @@ container_environment_variables = {
   AWS_DYNAMO_TABLE_NAME : "kitchen-order-api-table"
 }
 
-container_secrets = {}
-health_check_path = "/health"
+container_secrets     = {}
+health_check_path     = "/health"
 task_role_policy_arns = []
-alb_is_internal = true
+alb_is_internal       = true
 
 # =======================================================
 # Configurações do API Gateaway
