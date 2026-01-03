@@ -15,6 +15,7 @@ import (
 	"tech_challenge/internal/infra/messaging/consumers"
 	"tech_challenge/internal/shared/config/env"
 	"tech_challenge/internal/shared/factories"
+	"tech_challenge/internal/shared/infra/api/handlers"
 	"tech_challenge/internal/shared/infra/api/middlewares"
 	file_router "tech_challenge/internal/shared/infra/api/routes"
 	_ "tech_challenge/internal/shared/infra/api/swagger"
@@ -44,6 +45,10 @@ func Init() {
 	ginRouter.Use(gin.Logger())
 	ginRouter.Use(gin.Recovery())
 	ginRouter.Use(middlewares.ErrorHandlerMiddleware())
+
+	// Health check endpoint
+	healthHandler := handlers.NewHealthHandler()
+	ginRouter.GET("/health", healthHandler.Health)
 
 	v1Routes := ginRouter.Group("/v1")
 

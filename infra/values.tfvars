@@ -28,7 +28,16 @@ apigw_payload_format_version = "1.0"
 apigw_connection_type        = "VPC_LINK"
 
 # Definição dos endpoints da API
-api_endpoints = {}
+api_endpoints = {
+  get_kitchen_order = {
+    route_key  = "GET /kitchen-orders/{id}"
+    restricted = false
+  },
+  get_all_kitchen_orders = {
+    route_key  = "GET /kitchen-orders"
+    restricted = false
+  }
+}
 
 # =======================================================
 # Configurações do dynamoDB
