@@ -77,7 +77,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       GIT_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       IMAGE: ${{ needs.build.outputs.image }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -101,14 +100,13 @@ jobs:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v5.1.0
         with:
-          role-to-assume:  ${{ env.AWS_ROLE_ARN }}
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Adjust tfvars with image tag
         working-directory: infra
         run: |
-          echo "Replacing GHCR_IMAGE_TAG in infra/values.tfvars with $IMAGE"
           sed -i -e "s|GHCR_IMAGE_TAG|${IMAGE}|g" values.tfvars
           sed -i -e "s|AWS_ACCESS_KEY_ID_PLACEHOLDER|${AWS_ACCESS_KEY_ID}|g" values.tfvars
           sed -i -e "s|AWS_SECRET_ACCESS_KEY_PLACEHOLDER|${AWS_SECRET_ACCESS_KEY}|g" values.tfvars
@@ -116,18 +114,18 @@ jobs:
       - name: Terraform Init
         working-directory: infra
         run: |
-          terraform init 
+          terraform init -input=false
 
       - name: Terraform Apply
         working-directory: infra
         run: |
-          terraform plan -var-file=values.tfvars
+          terraform plan -input=false -var-file=values.tfvars
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "This is a workflow_dispatch event. Performing a terraform plan first."
-            terraform apply -var-file=values.tfvars -auto-approve
+            terraform apply -input=false -var-file=values.tfvars -auto-approve
           else
-            terraform apply -var-file=values.tfvars -auto-approve -target=module.ecs_service
+            terraform apply -input=false -var-file=values.tfvars -auto-approve -target=module.ecs_service
           fi
           
 
