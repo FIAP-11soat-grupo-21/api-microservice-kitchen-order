@@ -13,7 +13,6 @@ type Config struct {
 	APIPort      string
 	APIHost      string
 	APIUrl       string
-	APIUploadUrl string
 	Database     struct {
 		RunMigrations bool
 		Host          string
@@ -37,9 +36,6 @@ type Config struct {
 			Endpoint          string
 			PresignExpiration string
 		}
-	}
-	Google struct {
-		ProjectID string
 	}
 	MessageBroker struct {
 		Type     string
@@ -89,7 +85,6 @@ func (c *Config) Load() {
 
 	c.APIPort = getEnv("API_PORT")
 	c.APIHost = getEnv("API_HOST")
-	c.APIUploadUrl = getEnv("API_UPLOAD_URL")
 	c.APIUrl = c.APIHost + ":" + c.APIPort
 
 	c.Database.RunMigrations = getEnv("DB_RUN_MIGRATIONS") == "true"
@@ -111,8 +106,6 @@ func (c *Config) Load() {
 	c.AWS.S3.BucketName = getEnv("AWS_S3_BUCKET_NAME")
 	c.AWS.S3.Endpoint = getEnv("AWS_S3_ENDPOINT")
 	c.AWS.S3.PresignExpiration = getEnv("AWS_S3_PRESIGN_EXPIRATION")
-
-	c.Google.ProjectID = getEnv("GOOGLE_PROJECT_ID")
 
 	// Message Broker configuration
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
