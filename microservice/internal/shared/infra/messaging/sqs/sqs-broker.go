@@ -25,10 +25,8 @@ type SQSBroker struct {
 }
 
 type SQSConfig struct {
-	Region          string
-	AccessKeyID     string
-	SecretAccessKey string
-	QueueURL        string
+	Region   string
+	QueueURL string
 }
 
 func NewSQSBroker(config SQSConfig) *SQSBroker {
@@ -46,11 +44,6 @@ func (s *SQSBroker) Connect(ctx context.Context) error {
 
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(s.config.Region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-			s.config.AccessKeyID,
-			s.config.SecretAccessKey,
-			"",
-		)),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
