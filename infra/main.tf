@@ -50,18 +50,6 @@ module "kitchen_order_api" {
   project_common_tags = data.terraform_remote_state.infra.outputs.project_common_tags
 }
 
-resource "aws_apigatewayv2_integration" "alb_proxy" {
-  api_id           = data.terraform_remote_state.infra.outputs.api_gateway_id
-  integration_type = var.apigw_integration_type
-
-  integration_uri        = aws_lb_listener.listener.arn
-  integration_method     = var.apigw_integration_method
-  payload_format_version = var.apigw_payload_format_version
-
-  connection_type = var.apigw_connection_type
-  connection_id   = data.terraform_remote_state.infra.outputs.api_gateway_vpc_link_id
-}
-
 module "GetKitchenOrderAPIRoute" {
   source     = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/API-Gateway-Routes?ref=main"
   depends_on = [module.kitchen_order_api]
