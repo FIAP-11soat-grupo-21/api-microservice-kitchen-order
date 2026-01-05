@@ -31,11 +31,6 @@ type Config struct {
 		Region          string
 		AccessKeyID     string
 		SecretAccessKey string
-		S3              struct {
-			BucketName        string
-			Endpoint          string
-			PresignExpiration string
-		}
 	}
 	MessageBroker struct {
 		Type     string
@@ -98,10 +93,6 @@ func (c *Config) Load() {
 	c.AWS.AccessKeyID = getEnv("AWS_ACCESS_KEY_ID")
 	c.AWS.SecretAccessKey = getEnv("AWS_SECRET_ACCESS_KEY")
 
-	c.AWS.S3.BucketName = getEnv("AWS_S3_BUCKET_NAME")
-	c.AWS.S3.Endpoint = getEnv("AWS_S3_ENDPOINT")
-	c.AWS.S3.PresignExpiration = getEnv("AWS_S3_PRESIGN_EXPIRATION")
-
 	// Message Broker configuration
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
 
@@ -110,7 +101,6 @@ func (c *Config) Load() {
 		c.MessageBroker.RabbitMQ.Exchange = os.Getenv("RABBITMQ_EXCHANGE") // Optional
 	} else if c.MessageBroker.Type == "sqs" {
 		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
-		// AWS credentials já estão configuradas acima
 	}
 }
 

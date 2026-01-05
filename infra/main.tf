@@ -11,7 +11,8 @@ module "sqs_kitchen_orders" {
 }
 
 module "kitchen_order_api" {
-  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
+  source     = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
+  depends_on = [aws_lb_listener.listener]
 
   cluster_id            = data.terraform_remote_state.infra.outputs.ecs_cluster_id
   ecs_security_group_id = data.terraform_remote_state.infra.outputs.ecs_security_group_id

@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
@@ -45,6 +46,11 @@ func (s *SQSBroker) Connect(ctx context.Context) error {
 
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(s.config.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			s.config.AccessKeyID,
+			s.config.SecretAccessKey,
+			"",
+		)),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
