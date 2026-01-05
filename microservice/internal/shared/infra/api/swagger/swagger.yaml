@@ -36,7 +36,7 @@ definitions:
         example: "2023-10-01T12:00:00Z"
         type: string
     type: object
-host: localhost:8080
+host: localhost:8082
 info:
   contact: {}
   description: This is an API for a tech challenge.

@@ -1,6 +1,6 @@
 application_name = "kitchen-order-api"
 image_name       = "GHCR_IMAGE_TAG"
-image_port       = 8080
+image_port       = 8082
 app_path_pattern = ["/kitchen-orders*", "/kitchen-orders/*"]
 
 # =======================================================
@@ -8,7 +8,7 @@ app_path_pattern = ["/kitchen-orders*", "/kitchen-orders/*"]
 # =======================================================
 container_environment_variables = {
   GO_ENV : "production"
-  API_PORT : "8080"
+  API_PORT : "8082"
   API_HOST : "0.0.0.0"
   AWS_REGION : "us-east-2"
 

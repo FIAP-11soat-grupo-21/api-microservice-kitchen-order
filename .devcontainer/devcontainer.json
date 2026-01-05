@@ -10,7 +10,7 @@
 	// Configure tool-specific properties.
 	// "customizations": {},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [8080],
+	"forwardPorts": [8082],
 	//"mounts": [
 	//	"source=${localWorkspaceFolder}/appData,target=/workspaces,type=bind,consistency=cached"
 	//]
