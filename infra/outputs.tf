@@ -8,22 +8,17 @@ output "sqs_queue_arn" {
   value       = module.sqs_kitchen_orders.sqs_queue_arn
 }
 
-output "dynamodb_table_name" {
-  description = "Nome da tabela DynamoDB"
-  value       = module.dynamodb_table.table_name
+output "db_address" {
+  description = "Endereço do banco de dados RDS do Kitchen Orders"
+  value       = module.app_db.db_connection
 }
 
-output "alb_dns_name" {
-  description = "DNS name do Application Load Balancer"
-  value       = module.ALB.alb_dns_name
+output "db_secret_arn" {
+  description = "ARN do segredo do banco de dados RDS do Kitchen Orders"
+  value       = module.app_db.db_secret_password_arn
 }
 
-output "cognito_user_pool_id" {
-  description = "ID do Cognito User Pool"
-  value       = module.cognito.user_pool_id
-}
-
-output "cognito_user_pool_client_id" {
-  description = "ID do Cognito User Pool Client"
-  value       = module.cognito.user_pool_client_id
+output "ecs_service_id" {
+  description = "ID do serviço ECS do Kitchen Orders"
+  value       = module.kitchen_order_api.service_id
 }
