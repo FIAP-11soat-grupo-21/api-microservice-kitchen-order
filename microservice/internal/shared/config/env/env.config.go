@@ -28,9 +28,7 @@ type Config struct {
 		ApiBaseURL    string
 	}
 	AWS struct {
-		Region          string
-		AccessKeyID     string
-		SecretAccessKey string
+		Region string
 	}
 	MessageBroker struct {
 		Type     string
@@ -90,9 +88,6 @@ func (c *Config) Load() {
 	c.Database.Password = getEnv("DB_PASSWORD")
 
 	c.AWS.Region = getEnv("AWS_REGION")
-	c.AWS.AccessKeyID = getEnv("AWS_ACCESS_KEY_ID")
-	c.AWS.SecretAccessKey = getEnv("AWS_SECRET_ACCESS_KEY")
-
 	// Message Broker configuration
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
 
