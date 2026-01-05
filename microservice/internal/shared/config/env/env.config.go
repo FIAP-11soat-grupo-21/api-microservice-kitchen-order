@@ -94,11 +94,6 @@ func (c *Config) Load() {
 	c.Database.Username = getEnv("DB_USERNAME")
 	c.Database.Password = getEnv("DB_PASSWORD")
 
-	c.PaymentGateway.AccessToken = getEnv("ACCESS_TOKEN")
-	c.PaymentGateway.CollectorID = getEnv("COLLECTOR_ID")
-	c.PaymentGateway.ExternalPosID = getEnv("EXTERNAL_POS_ID")
-	c.PaymentGateway.ApiBaseURL = getEnv("MERCADOPAGO_API_URL")
-
 	c.AWS.Region = getEnv("AWS_REGION")
 	c.AWS.AccessKeyID = getEnv("AWS_ACCESS_KEY_ID")
 	c.AWS.SecretAccessKey = getEnv("AWS_SECRET_ACCESS_KEY")

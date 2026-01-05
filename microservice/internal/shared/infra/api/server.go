@@ -17,7 +17,6 @@ import (
 	"tech_challenge/internal/shared/factories"
 	"tech_challenge/internal/shared/infra/api/handlers"
 	"tech_challenge/internal/shared/infra/api/middlewares"
-	file_router "tech_challenge/internal/shared/infra/api/routes"
 	_ "tech_challenge/internal/shared/infra/api/swagger"
 	"tech_challenge/internal/shared/infra/database"
 )
@@ -52,7 +51,6 @@ func Init() {
 
 	v1Routes := ginRouter.Group("/v1")
 
-	file_router.RegisterFileRoutes(v1Routes.Group("/uploads"))
 	routes.RegisterKitchenOrderRoutes(v1Routes.Group("/kitchen-orders"))
 
 	ctx, cancel := context.WithCancel(context.Background())
