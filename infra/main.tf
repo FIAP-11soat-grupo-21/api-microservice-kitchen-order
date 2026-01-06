@@ -31,15 +31,15 @@ module "kitchen_order_api" {
       AWS_COGNITO_USER_POOL_CLIENT_ID : data.terraform_remote_state.infra.outputs.cognito_user_pool_client_id
       USER_PASSWORD_AUTH : data.terraform_remote_state.infra.outputs.cognito_user_pool_client_secret
 
-      # Database configuration
-      DB_HOST : module.app_db.db_connection
+      # Database configuration - usando a mesma instância RDS do infra-core
+      DB_HOST : data.terraform_remote_state.infra.outputs.rds_address
 
       SQS_QUEUE_URL : module.sqs_kitchen_orders.sqs_queue_url
       SQS_QUEUE_ARN : module.sqs_kitchen_orders.sqs_queue_arn
   })
   ecs_container_secrets = merge(var.container_secrets,
     {
-      DB_PASSWORD : module.app_db.db_secret_password_arn
+      DB_PASSWORD : data.terraform_remote_state.infra.outputs.rds_secret_arn
   })
 
   private_subnet_ids      = data.terraform_remote_state.infra.outputs.private_subnet_id
