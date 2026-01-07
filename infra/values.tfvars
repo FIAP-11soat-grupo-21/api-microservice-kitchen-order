@@ -15,7 +15,7 @@ container_environment_variables = {
   DB_RUN_MIGRATIONS : "true"
   DB_NAME : "postgres"
   DB_PORT : "5432"
-  DB_USERNAME : "postgres"
+  DB_USERNAME : "adminuser"
 
   MESSAGE_BROKER_TYPE : "sqs"
 }
