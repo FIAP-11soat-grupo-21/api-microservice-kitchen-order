@@ -25,7 +25,7 @@ func NewMessageBroker(ctx context.Context) (interfaces.MessageBroker, error) {
 	case MessageBrokerRabbitMQ:
 		broker := rabbitmq.NewRabbitMQBroker(rabbitmq.RabbitMQConfig{
 			URL:      config.MessageBroker.RabbitMQ.URL,
-			Exchange: config.MessageBroker.RabbitMQ.Exchange,
+			Exchange: "",
 		})
 		if err := broker.Connect(ctx); err != nil {
 			return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)

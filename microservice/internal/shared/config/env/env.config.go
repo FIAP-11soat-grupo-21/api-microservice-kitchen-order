@@ -93,7 +93,6 @@ func (c *Config) Load() {
 
 	if c.MessageBroker.Type == "rabbitmq" {
 		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
-		c.MessageBroker.RabbitMQ.Exchange = os.Getenv("RABBITMQ_EXCHANGE") // Optional
 	} else if c.MessageBroker.Type == "sqs" {
 		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
 	}
