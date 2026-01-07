@@ -11,8 +11,6 @@ container_environment_variables = {
   API_PORT : "8082"
   API_HOST : "0.0.0.0"
   AWS_REGION : "us-east-2"
-  AWS_ACCESS_KEY_ID : "VALUE"
-  AWS_SECRET_ACCESS_KEY : "VALUE"
 
   DB_RUN_MIGRATIONS : "true"
   DB_NAME : "postgres"

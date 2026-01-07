@@ -27,10 +27,6 @@ module "kitchen_order_api" {
 
   ecs_container_environment_variables = merge(var.container_environment_variables,
     {
-      AWS_COGNITO_USER_POOL_ID : data.terraform_remote_state.infra.outputs.cognito_user_pool_id
-      AWS_COGNITO_USER_POOL_CLIENT_ID : data.terraform_remote_state.infra.outputs.cognito_user_pool_client_id
-      USER_PASSWORD_AUTH : data.terraform_remote_state.infra.outputs.cognito_user_pool_client_secret
-
       # Database configuration - usando a mesma instância RDS do infra-core
       DB_HOST : data.terraform_remote_state.infra.outputs.rds_address
 

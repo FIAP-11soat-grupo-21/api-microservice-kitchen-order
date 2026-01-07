@@ -108,8 +108,6 @@ jobs:
         working-directory: infra
         run: |
           sed -i -e "s|GHCR_IMAGE_TAG|${IMAGE}|g" values.tfvars
-          sed -i -e "s|AWS_ACCESS_KEY_ID_PLACEHOLDER|${AWS_ACCESS_KEY_ID}|g" values.tfvars
-          sed -i -e "s|AWS_SECRET_ACCESS_KEY_PLACEHOLDER|${AWS_SECRET_ACCESS_KEY}|g" values.tfvars
 
       - name: Terraform Init
         working-directory: infra
