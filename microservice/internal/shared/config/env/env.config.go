@@ -33,8 +33,9 @@ type Config struct {
 	MessageBroker struct {
 		Type     string
 		RabbitMQ struct {
-			URL      string
-			Exchange string
+			URL          string
+			Exchange     string
+			KitchenQueue string
 		}
 		SQS struct {
 			QueueURL string
@@ -93,6 +94,10 @@ func (c *Config) Load() {
 
 	if c.MessageBroker.Type == "rabbitmq" {
 		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
+		c.MessageBroker.RabbitMQ.KitchenQueue = os.Getenv("RABBITMQ_KITCHEN_QUEUE")
+		if c.MessageBroker.RabbitMQ.KitchenQueue == "" {
+			c.MessageBroker.RabbitMQ.KitchenQueue = "kitchen-order.create" // fallback
+		}
 	} else if c.MessageBroker.Type == "sqs" {
 		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
 	}

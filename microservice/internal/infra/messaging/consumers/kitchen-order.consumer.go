@@ -8,6 +8,7 @@ import (
 	"tech_challenge/internal/application/controllers"
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/factories"
+	"tech_challenge/internal/shared/config/env"
 	"tech_challenge/internal/shared/interfaces"
 )
 
@@ -48,11 +49,14 @@ type KitchenOrderResponse struct {
 }
 
 func (c *KitchenOrderConsumer) Start(ctx context.Context) error {
-	if err := c.broker.Subscribe(ctx, "kitchen-order.create", c.handleCreate); err != nil {
+	config := env.GetConfig()
+	queueName := config.MessageBroker.RabbitMQ.KitchenQueue
+	
+	if err := c.broker.Subscribe(ctx, queueName, c.handleCreate); err != nil {
 		return err
 	}
 
-	log.Println("Kitchen order consumer started (kitchen-order.create only)")
+	log.Printf("Kitchen order consumer started listening on queue: %s", queueName)
 	return nil
 }
 
@@ -68,7 +72,6 @@ func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.
 	items := make([]dtos.OrderItemDTO, len(createMsg.Items))
 	for i, item := range createMsg.Items {
 		items[i] = dtos.OrderItemDTO{
-			ID:        item.ID,
 			OrderID:   createMsg.OrderID,
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
