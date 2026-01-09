@@ -196,3 +196,87 @@ func TestKitchenOrder_StatusAssignment(t *testing.T) {
 		t.Errorf("Expected status name 'Recebido', got %s", kitchenOrder.Status.Name.Value())
 	}
 }
+
+func TestNewKitchenOrderWithOrderData_Success(t *testing.T) {
+	// Arrange
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	orderID := "order-123"
+	slug := "001"
+	customerID := "customer-456"
+	amount := 25.50
+	status, _ := NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
+	createdAt := time.Now()
+
+	orderItem, _ := NewOrderItem("item-1", orderID, "product-1", 2, 12.75)
+	items := []OrderItem{*orderItem}
+
+	kitchenOrder, err := NewKitchenOrderWithOrderData(id, orderID, slug, &customerID, amount, items, *status, createdAt, nil)
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if kitchenOrder.ID != id {
+		t.Errorf("Expected ID %s, got %s", id, kitchenOrder.ID)
+	}
+
+	if kitchenOrder.OrderID != orderID {
+		t.Errorf("Expected OrderID %s, got %s", orderID, kitchenOrder.OrderID)
+	}
+
+	if kitchenOrder.CustomerID == nil || *kitchenOrder.CustomerID != customerID {
+		t.Errorf("Expected CustomerID %s, got %v", customerID, kitchenOrder.CustomerID)
+	}
+
+	if kitchenOrder.Amount != amount {
+		t.Errorf("Expected Amount %f, got %f", amount, kitchenOrder.Amount)
+	}
+
+	if len(kitchenOrder.Items) != 1 {
+		t.Errorf("Expected 1 item, got %d", len(kitchenOrder.Items))
+	}
+}
+
+func TestKitchenOrder_AddItem(t *testing.T) {
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	orderID := "order-123"
+	slug := "001"
+	status, _ := NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
+	createdAt := time.Now()
+
+	kitchenOrder, _ := NewKitchenOrder(id, orderID, slug, *status, createdAt, nil)
+	orderItem, _ := NewOrderItem("item-1", orderID, "product-1", 2, 12.75)
+
+	kitchenOrder.AddItem(*orderItem)
+
+	if len(kitchenOrder.Items) != 1 {
+		t.Errorf("Expected 1 item, got %d", len(kitchenOrder.Items))
+	}
+
+	if kitchenOrder.Items[0].ID != "item-1" {
+		t.Errorf("Expected item ID 'item-1', got %s", kitchenOrder.Items[0].ID)
+	}
+}
+
+func TestKitchenOrder_CalcTotalAmount(t *testing.T) {
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	orderID := "order-123"
+	slug := "001"
+	status, _ := NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
+	createdAt := time.Now()
+
+	kitchenOrder, _ := NewKitchenOrder(id, orderID, slug, *status, createdAt, nil)
+	
+	item1, _ := NewOrderItem("item-1", orderID, "product-1", 2, 10.00) // 20.00
+	item2, _ := NewOrderItem("item-2", orderID, "product-2", 1, 15.50) // 15.50
+	
+	kitchenOrder.AddItem(*item1)
+	kitchenOrder.AddItem(*item2)
+
+	kitchenOrder.CalcTotalAmount()
+
+	expected := 35.5
+	if kitchenOrder.Amount != expected {
+		t.Errorf("Expected amount %f, got %f", expected, kitchenOrder.Amount)
+	}
+}

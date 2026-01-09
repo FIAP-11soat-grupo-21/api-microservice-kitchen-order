@@ -29,6 +29,9 @@ func (c *KitchenOrderController) Create(kitchenOrderDTO dtos.CreateKitchenOrderD
 
 	kitchenOrder, err := kitchenOrderUseCase.Execute(
 		kitchenOrderDTO.OrderID,
+		kitchenOrderDTO.CustomerID,
+		kitchenOrderDTO.Amount,
+		kitchenOrderDTO.Items,
 	)
 
 	if err != nil {

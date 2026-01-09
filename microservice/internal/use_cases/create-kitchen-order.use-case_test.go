@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/domain/entities"
 	"tech_challenge/internal/domain/exceptions"
 	"tech_challenge/internal/shared/config/constants"
@@ -17,11 +18,18 @@ func TestCreateKitchenOrderUseCase_Success(t *testing.T) {
 
 	useCase := NewCreateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
 	orderID := "550e8400-e29b-41d4-a716-446655440000"
+	customerID := "customer-123"
+	amount := 25.50
+	items := []dtos.OrderItemDTO{
+		{
+			ProductID: "product-1",
+			Quantity:  2,
+			UnitPrice: 12.75,
+		},
+	}
 
-	// Act
-	result, err := useCase.Execute(orderID)
+	result, err := useCase.Execute(orderID, &customerID, amount, items)
 
-	// Assert
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -50,11 +58,12 @@ func TestCreateKitchenOrderUseCase_StatusNotFound(t *testing.T) {
 
 	useCase := NewCreateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
 	orderID := "550e8400-e29b-41d4-a716-446655440000"
+	customerID := "customer-123"
+	amount := 25.50
+	items := []dtos.OrderItemDTO{}
 
-	// Act
-	_, err := useCase.Execute(orderID)
+	_, err := useCase.Execute(orderID, &customerID, amount, items)
 
-	// Assert
 	if err == nil {
 		t.Error("Expected error for status not found, got nil")
 	}
@@ -87,11 +96,12 @@ func TestCreateKitchenOrderUseCase_SlugGeneration(t *testing.T) {
 
 	useCase := NewCreateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
 	orderID := "550e8400-e29b-41d4-a716-446655440000"
+	customerID := "customer-123"
+	amount := 25.50
+	items := []dtos.OrderItemDTO{}
 
-	// Act
-	result, err := useCase.Execute(orderID)
+	result, err := useCase.Execute(orderID, &customerID, amount, items)
 
-	// Assert
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

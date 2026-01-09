@@ -1,4 +1,9 @@
-.PHONY: run build test test-coverage test-coverage-html
+.PHONY: run build test coverage coverage-html clean
+
+# Variables
+BINARY_NAME=main
+COVERAGE_FILE=coverage.out
+COVERAGE_HTML=coverage.html
 
 # Run the API
 run:
@@ -6,21 +11,17 @@ run:
 
 # Build the binary
 build:
-	go build -o main.exe .
+	go build -o $(BINARY_NAME) .
 
 # Run all tests
 test:
-	go test ./...
+	go test -v ./...
 
-test-coverage:
-	go test ./internal/... ./shared/... -coverprofile=coverage.out
-	go tool cover -func=coverage.out
+coverage:
+	go test ./... -coverprofile=$(COVERAGE_FILE)
+	go tool cover -func=$(COVERAGE_FILE)
 
-test-coverage-html:
-	go test ./internal/... ./shared/... -coverprofile=coverage.out
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+coverage-html: coverage
+	go tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
+	@echo "Coverage report: $(COVERAGE_HTML)"
 
-test-coverage-full:
-	go test ./... -coverprofile=coverage.out
-	go tool cover -func=coverage.out

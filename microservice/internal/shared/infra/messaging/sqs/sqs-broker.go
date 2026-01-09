@@ -24,10 +24,8 @@ type SQSBroker struct {
 }
 
 type SQSConfig struct {
-	Region          string
-	AccessKeyID     string
-	SecretAccessKey string
-	QueueURL        string
+	Region   string
+	QueueURL string
 }
 
 func NewSQSBroker(config SQSConfig) *SQSBroker {

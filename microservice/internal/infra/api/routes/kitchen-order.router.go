@@ -8,8 +8,12 @@ import (
 
 func RegisterKitchenOrderRoutes(router *gin.RouterGroup) {
 	kitchenOrderHandler := handlers.NewKitchenOrderHandler()
+	orderStatusHandler := handlers.NewOrderStatusHandler()
 
 	// Apenas GET endpoints (create e update são por mensageria)
 	router.GET("/", kitchenOrderHandler.FindAll)
 	router.GET("/:id", kitchenOrderHandler.FindByID)
+	
+	// Status endpoints
+	router.GET("/status", orderStatusHandler.FindAll)
 }

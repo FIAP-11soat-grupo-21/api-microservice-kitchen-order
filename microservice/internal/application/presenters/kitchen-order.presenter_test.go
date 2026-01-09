@@ -31,8 +31,8 @@ func TestToResponse(t *testing.T) {
 		t.Errorf("Expected ID 'test-id', got %s", response.ID)
 	}
 
-	if response.OrderID != "test-id" {
-		t.Errorf("Expected OrderID 'test-id', got %s", response.OrderID)
+	if response.OrderID != "order-123" {
+		t.Errorf("Expected OrderID 'order-123', got %s", response.OrderID)
 	}
 
 	if response.Slug != "001" {

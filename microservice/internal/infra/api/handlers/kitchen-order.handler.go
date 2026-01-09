@@ -4,13 +4,14 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
 	"tech_challenge/internal/application/controllers"
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/factories"
 	"tech_challenge/internal/infra/api/schemas"
-	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type KitchenOrderHandler struct {
@@ -68,13 +69,27 @@ func (h *KitchenOrderHandler) FindAll(ctx *gin.Context) {
 	kitchenOrderResponses := make([]schemas.KitchenOrderResponseSchema, len(kitchenOrders))
 
 	for i, kitchenOrder := range kitchenOrders {
+		items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
+		for j, item := range kitchenOrder.Items {
+			items[j] = schemas.OrderItemResponseSchema{
+				ID:        item.ID,
+				OrderID:   item.OrderID,
+				ProductID: item.ProductID,
+				Quantity:  item.Quantity,
+				UnitPrice: item.UnitPrice,
+			}
+		}
 
 		kitchenOrderResponses[i] = schemas.KitchenOrderResponseSchema{
-			OrderID:   kitchenOrder.OrderID,
-			Status:    kitchenOrder.Status.Name,
-			Slug:      kitchenOrder.Slug,
-			CreatedAt: kitchenOrder.CreatedAt,
-			UpdatedAt: kitchenOrder.UpdatedAt,
+			ID:         kitchenOrder.ID,
+			OrderID:    kitchenOrder.OrderID,
+			CustomerID: kitchenOrder.CustomerID,
+			Amount:     kitchenOrder.Amount,
+			Status:     kitchenOrder.Status.Name,
+			Slug:       kitchenOrder.Slug,
+			Items:      items,
+			CreatedAt:  kitchenOrder.CreatedAt,
+			UpdatedAt:  kitchenOrder.UpdatedAt,
 		}
 	}
 
@@ -101,12 +116,27 @@ func (h *KitchenOrderHandler) FindByID(ctx *gin.Context) {
 		return
 	}
 
+	items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
+	for i, item := range kitchenOrder.Items {
+		items[i] = schemas.OrderItemResponseSchema{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+		}
+	}
+
 	kitchenOrderResponse := schemas.KitchenOrderResponseSchema{
-		OrderID:   kitchenOrder.OrderID,
-		Status:    kitchenOrder.Status.Name,
-		Slug:      kitchenOrder.Slug,
-		CreatedAt: kitchenOrder.CreatedAt,
-		UpdatedAt: kitchenOrder.UpdatedAt,
+		ID:         kitchenOrder.ID,
+		OrderID:    kitchenOrder.OrderID,
+		CustomerID: kitchenOrder.CustomerID,
+		Amount:     kitchenOrder.Amount,
+		Status:     kitchenOrder.Status.Name,
+		Slug:       kitchenOrder.Slug,
+		Items:      items,
+		CreatedAt:  kitchenOrder.CreatedAt,
+		UpdatedAt:  kitchenOrder.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusOK, kitchenOrderResponse)

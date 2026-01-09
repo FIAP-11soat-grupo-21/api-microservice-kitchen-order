@@ -167,8 +167,7 @@ func TestFromModelArrayToDAOArrayKitchenOrder(t *testing.T) {
 	}
 }
 
-func TestFromModelArrayToDAOArrayKitchenOrder_EmptyArray(t *testing.T) {
-	// Arrange
+func TestFromDAOToModelKitchenOrder_EmptyArray(t *testing.T) {
 	models := []*models.KitchenOrderModel{}
 
 	// Act
@@ -177,5 +176,111 @@ func TestFromModelArrayToDAOArrayKitchenOrder_EmptyArray(t *testing.T) {
 	// Assert
 	if len(daos) != 0 {
 		t.Errorf("Expected 0 DAOs, got %d", len(daos))
+	}
+}
+
+func TestFromDAOToModelKitchenOrder_WithItems(t *testing.T) {
+	now := time.Now()
+	customerID := "customer-123"
+
+	dao := daos.KitchenOrderDAO{
+		ID:         "test-id",
+		OrderID:    "order-123",
+		CustomerID: &customerID,
+		Amount:     25.50,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "status-id",
+			Name: "Recebido",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-1",
+				OrderID:   "order-123",
+				ProductID: "product-1",
+				Quantity:  2,
+				UnitPrice: 12.75,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: nil,
+	}
+
+	model := FromDAOToModelKitchenOrder(dao)
+
+	if model.CustomerID == nil || *model.CustomerID != customerID {
+		t.Errorf("Expected CustomerID %s, got %v", customerID, model.CustomerID)
+	}
+
+	if model.Amount != 25.50 {
+		t.Errorf("Expected Amount 25.50, got %f", model.Amount)
+	}
+
+	if len(model.Items) != 1 {
+		t.Errorf("Expected 1 item, got %d", len(model.Items))
+	}
+
+	if model.Items[0].ID != "item-1" {
+		t.Errorf("Expected Item ID 'item-1', got %s", model.Items[0].ID)
+	}
+
+	if model.Items[0].KitchenOrderID != "test-id" {
+		t.Errorf("Expected Item KitchenOrderID 'test-id', got %s", model.Items[0].KitchenOrderID)
+	}
+
+	if model.UpdatedAt != nil {
+		t.Errorf("Expected UpdatedAt to be nil, got %v", model.UpdatedAt)
+	}
+}
+
+func TestFromModelToDAOKitchenOrder_WithItems(t *testing.T) {
+	now := time.Now()
+	customerID := "customer-123"
+
+	model := &models.KitchenOrderModel{
+		ID:         "test-id",
+		OrderID:    "order-123",
+		CustomerID: &customerID,
+		Amount:     25.50,
+		Slug:       "001",
+		StatusID:   "status-id",
+		Status: models.OrderStatusModel{
+			ID:   "status-id",
+			Name: "Recebido",
+		},
+		Items: []models.OrderItemModel{
+			{
+				ID:             "item-1",
+				KitchenOrderID: "test-id",
+				OrderID:        "order-123",
+				ProductID:      "product-1",
+				Quantity:       2,
+				UnitPrice:      12.75,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: nil,
+	}
+
+	dao := FromModelToDAOKitchenOrder(model)
+
+	if dao.CustomerID == nil || *dao.CustomerID != customerID {
+		t.Errorf("Expected CustomerID %s, got %v", customerID, dao.CustomerID)
+	}
+
+	if dao.Amount != 25.50 {
+		t.Errorf("Expected Amount 25.50, got %f", dao.Amount)
+	}
+
+	if len(dao.Items) != 1 {
+		t.Errorf("Expected 1 item, got %d", len(dao.Items))
+	}
+
+	if dao.Items[0].ID != "item-1" {
+		t.Errorf("Expected Item ID 'item-1', got %s", dao.Items[0].ID)
+	}
+
+	if dao.UpdatedAt != nil {
+		t.Errorf("Expected UpdatedAt to be nil, got %v", dao.UpdatedAt)
 	}
 }

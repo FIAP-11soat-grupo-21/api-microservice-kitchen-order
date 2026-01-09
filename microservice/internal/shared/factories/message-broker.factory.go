@@ -25,7 +25,7 @@ func NewMessageBroker(ctx context.Context) (interfaces.MessageBroker, error) {
 	case MessageBrokerRabbitMQ:
 		broker := rabbitmq.NewRabbitMQBroker(rabbitmq.RabbitMQConfig{
 			URL:      config.MessageBroker.RabbitMQ.URL,
-			Exchange: config.MessageBroker.RabbitMQ.Exchange,
+			Exchange: "",
 		})
 		if err := broker.Connect(ctx); err != nil {
 			return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
@@ -34,10 +34,8 @@ func NewMessageBroker(ctx context.Context) (interfaces.MessageBroker, error) {
 
 	case MessageBrokerSQS:
 		broker := sqs.NewSQSBroker(sqs.SQSConfig{
-			Region:          config.AWS.Region,
-			AccessKeyID:     config.AWS.AccessKeyID,
-			SecretAccessKey: config.AWS.SecretAccessKey,
-			QueueURL:        config.MessageBroker.SQS.QueueURL,
+			Region:   config.AWS.Region,
+			QueueURL: config.MessageBroker.SQS.QueueURL,
 		})
 		if err := broker.Connect(ctx); err != nil {
 			return nil, fmt.Errorf("failed to connect to SQS: %w", err)

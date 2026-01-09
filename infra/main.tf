@@ -1,47 +1,6 @@
-module "cognito" {
-  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/cognito?ref=main"
-
-  user_pool_name               = var.cognito_user_pool_name
-  allow_admin_create_user_only = var.allow_admin_create_user_only
-  auto_verified_attributes     = var.auto_verified_attributes
-  username_attributes          = var.username_attributes
-  email_required               = var.email_required
-  name_required                = var.name_required
-  generate_secret              = var.generate_secret
-  access_token_validity        = var.access_token_validity
-  id_token_validity            = var.id_token_validity
-  refresh_token_validity       = var.refresh_token_validity
-
-  tags = data.terraform_remote_state.infra.outputs.project_common_tags
-}
-
-module "ALB" {
-  source             = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ALB?ref=main"
-  loadbalancer_name  = var.application_name
-  health_check_path  = var.health_check_path
-  app_port           = var.image_port
-  is_internal        = var.alb_is_internal
-  private_subnet_ids = data.terraform_remote_state.infra.outputs.private_subnet_id
-  vpc_id             = data.terraform_remote_state.infra.outputs.vpc_id
-
-  project_common_tags = data.terraform_remote_state.infra.outputs.project_common_tags
-}
-
-module "dynamodb_table" {
-  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/Dynamo?ref=main"
-
-  name          = "${var.application_name}-table"
-  hash_key      = var.dynamodb_hash_key
-  hash_key_type = var.dynamodb_hash_key_type
-  billing_mode  = var.dynamodb_billing_mode
-
-  secondary_indexes = var.dynamodb_secondary_indexes
-
-  range_key = var.dynamodb_range_keys
-}
-
 module "kitchen_order_api" {
-  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
+  source     = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
+  depends_on = [aws_lb_listener.listener]
 
   cluster_id            = data.terraform_remote_state.infra.outputs.ecs_cluster_id
   ecs_security_group_id = data.terraform_remote_state.infra.outputs.ecs_security_group_id
@@ -56,29 +15,25 @@ module "kitchen_order_api" {
 
   ecs_container_environment_variables = merge(var.container_environment_variables,
     {
-      AWS_COGNITO_USER_POOL_ID : module.cognito.user_pool_id,
-      AWS_COGNITO_USER_POOL_CLIENT_ID : module.cognito.user_pool_client_id
+      # Database configuration - usando a mesma instância RDS do infra-core
+      DB_HOST : data.terraform_remote_state.infra.outputs.rds_address
+
+      # SQS configuration
+      AWS_SQS_KITCHEN_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_queue_url
+      AWS_SQS_KITCHEN_ORDERS_ERROR_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_order_error_queue_url
+  })
+  ecs_container_secrets = merge(var.container_secrets,
+    {
+      DB_PASSWORD : data.terraform_remote_state.infra.outputs.rds_secret_arn
   })
 
   private_subnet_ids      = data.terraform_remote_state.infra.outputs.private_subnet_id
   task_execution_role_arn = data.terraform_remote_state.infra.outputs.ecs_task_execution_role_arn
   task_role_policy_arns   = var.task_role_policy_arns
-  alb_target_group_arn    = module.ALB.target_group_arn
-  alb_security_group_id   = module.ALB.alb_security_group_id
+  alb_target_group_arn    = aws_alb_target_group.target_group.arn
+  alb_security_group_id   = data.terraform_remote_state.infra.outputs.alb_security_group_id
 
   project_common_tags = data.terraform_remote_state.infra.outputs.project_common_tags
-}
-
-resource "aws_apigatewayv2_integration" "alb_proxy" {
-  api_id           = data.terraform_remote_state.infra.outputs.api_gateway_id
-  integration_type = var.apigw_integration_type
-
-  integration_uri        = module.ALB.listener_arn
-  integration_method     = var.apigw_integration_method
-  payload_format_version = var.apigw_payload_format_version
-
-  connection_type = var.apigw_connection_type
-  connection_id   = data.terraform_remote_state.infra.outputs.api_gateway_vpc_link_id
 }
 
 module "GetKitchenOrderAPIRoute" {
@@ -88,5 +43,26 @@ module "GetKitchenOrderAPIRoute" {
   api_id       = data.terraform_remote_state.infra.outputs.api_gateway_id
   alb_proxy_id = aws_apigatewayv2_integration.alb_proxy.id
 
-  endpoints = var.api_endpoints
+  endpoints = {
+    get_kitchen_order = {
+      route_key  = "GET /kitchen-orders/{id}"
+      restricted = false
+    },
+    get_all_kitchen_orders = {
+      route_key  = "GET /kitchen-orders"
+      restricted = false
+    },
+    create_kitchen_order = {
+      route_key  = "POST /kitchen-orders"
+      restricted = false
+    },
+    update_kitchen_order = {
+      route_key  = "PUT /kitchen-orders/{id}"
+      restricted = false
+    },
+    delete_kitchen_order = {
+      route_key  = "DELETE /kitchen-orders/{id}"
+      restricted = false
+    }
+  }
 }

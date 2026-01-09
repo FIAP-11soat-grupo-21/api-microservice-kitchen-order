@@ -24,13 +24,27 @@ func (g *KitchenOrderGateway) Insert(order entities.KitchenOrder) error {
 		Name: order.Status.Name.Value(),
 	}
 
+	items := make([]daos.OrderItemDAO, len(order.Items))
+	for i, item := range order.Items {
+		items[i] = daos.OrderItemDAO{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+		}
+	}
+
 	return g.dataSource.Insert(daos.KitchenOrderDAO{
-		ID:        order.ID,
-		OrderID:   order.OrderID,
-		Slug:      order.Slug.Value(),
-		Status:    status,
-		CreatedAt: order.CreatedAt,
-		UpdatedAt: order.UpdatedAt,
+		ID:         order.ID,
+		OrderID:    order.OrderID,
+		CustomerID: order.CustomerID,
+		Amount:     order.Amount,
+		Slug:       order.Slug.Value(),
+		Status:     status,
+		Items:      items,
+		CreatedAt:  order.CreatedAt,
+		UpdatedAt:  order.UpdatedAt,
 	})
 }
 
@@ -48,10 +62,28 @@ func (g *KitchenOrderGateway) FindByID(id string) (entities.KitchenOrder, error)
 		return entities.KitchenOrder{}, err
 	}
 
-	order, err := entities.NewKitchenOrder(
+	items := make([]entities.OrderItem, len(orderDAO.Items))
+	for i, itemDAO := range orderDAO.Items {
+		item, err := entities.NewOrderItem(
+			itemDAO.ID,
+			itemDAO.OrderID,
+			itemDAO.ProductID,
+			itemDAO.Quantity,
+			itemDAO.UnitPrice,
+		)
+		if err != nil {
+			return entities.KitchenOrder{}, err
+		}
+		items[i] = *item
+	}
+
+	order, err := entities.NewKitchenOrderWithOrderData(
 		orderDAO.ID,
 		orderDAO.OrderID,
 		orderDAO.Slug,
+		orderDAO.CustomerID,
+		orderDAO.Amount,
+		items,
 		*status,
 		orderDAO.CreatedAt,
 		orderDAO.UpdatedAt,
@@ -80,10 +112,28 @@ func (g *KitchenOrderGateway) FindAll(filter dtos.KitchenOrderFilter) ([]entitie
 			return nil, err
 		}
 
-		order, err := entities.NewKitchenOrder(
+		items := make([]entities.OrderItem, len(orderDAO.Items))
+		for i, itemDAO := range orderDAO.Items {
+			item, err := entities.NewOrderItem(
+				itemDAO.ID,
+				itemDAO.OrderID,
+				itemDAO.ProductID,
+				itemDAO.Quantity,
+				itemDAO.UnitPrice,
+			)
+			if err != nil {
+				return nil, err
+			}
+			items[i] = *item
+		}
+
+		order, err := entities.NewKitchenOrderWithOrderData(
 			orderDAO.ID,
 			orderDAO.OrderID,
 			orderDAO.Slug,
+			orderDAO.CustomerID,
+			orderDAO.Amount,
+			items,
 			*status,
 			orderDAO.CreatedAt,
 			orderDAO.UpdatedAt,

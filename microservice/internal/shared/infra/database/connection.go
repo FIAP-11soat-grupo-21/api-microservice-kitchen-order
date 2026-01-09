@@ -102,6 +102,7 @@ func RunMigrations() {
 	if err := dbConnection.AutoMigrate(
 		&models.KitchenOrderModel{},
 		&models.OrderStatusModel{},
+		&models.OrderItemModel{},
 	); err != nil {
 		log.Printf("Error running migrations: %v", err)
 	}

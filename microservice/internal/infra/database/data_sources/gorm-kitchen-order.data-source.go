@@ -23,7 +23,13 @@ func NewGormKitchenOrderDataSource() *GormKitchenOrderDataSource {
 func (r *GormKitchenOrderDataSource) Insert(kitchenOrder daos.KitchenOrderDAO) error {
 	kitchenOrderModel := mappers.FromDAOToModelKitchenOrder(kitchenOrder)
 
-	return r.db.Model(&models.KitchenOrderModel{}).Create(&kitchenOrderModel).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&kitchenOrderModel).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *GormKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error) {
@@ -32,6 +38,7 @@ func (r *GormKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([]
 	query := r.db.
 		Joins("JOIN order_status ON kitchen_order.status_id = order_status.id").
 		Preload("Status").
+		Preload("Items").
 		Where("order_status.name <> ?", "Finalizado").
 		Order(`
             CASE order_status.name
@@ -65,7 +72,7 @@ func (r *GormKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([]
 func (r *GormKitchenOrderDataSource) FindByID(id string) (daos.KitchenOrderDAO, error) {
 	var kitchenOrder *models.KitchenOrderModel
 
-	if err := r.db.Preload("Status").First(&kitchenOrder, "id = ?", id).Error; err != nil {
+	if err := r.db.Preload("Status").Preload("Items").First(&kitchenOrder, "id = ?", id).Error; err != nil {
 		return daos.KitchenOrderDAO{}, err
 	}
 
