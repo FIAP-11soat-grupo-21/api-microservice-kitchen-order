@@ -1,11 +1,11 @@
-output "sqs_queue_url" {
-  description = "URL da fila SQS"
-  value       = module.sqs_kitchen_orders.sqs_queue_url
+output "sqs_kitchen_orders_queue_url" {
+  description = "URL da fila SQS do Kitchen Orders (do infra-core)"
+  value       = data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_queue_url
 }
 
-output "sqs_queue_arn" {
-  description = "ARN da fila SQS"
-  value       = module.sqs_kitchen_orders.sqs_queue_arn
+output "sqs_kitchen_orders_order_error_queue_url" {
+  description = "URL da fila SQS de erro do Kitchen Orders (do infra-core)"
+  value       = data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_order_error_queue_url
 }
 
 output "ecs_service_id" {

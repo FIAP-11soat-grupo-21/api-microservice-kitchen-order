@@ -1,15 +1,3 @@
-module "sqs_kitchen_orders" {
-  source = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/SQS?ref=main"
-
-  queue_name                 = "${var.application_name}-queue"
-  delay_seconds              = var.sqs_delay_seconds
-  message_retention_seconds  = var.sqs_message_retention_seconds
-  receive_wait_time_seconds  = var.sqs_receive_wait_time_seconds
-  visibility_timeout_seconds = var.sqs_visibility_timeout_seconds
-
-  project_common_tags = data.terraform_remote_state.infra.outputs.project_common_tags
-}
-
 module "kitchen_order_api" {
   source     = "git::https://github.com/FIAP-11soat-grupo-21/infra-core.git//modules/ECS-Service?ref=main"
   depends_on = [aws_lb_listener.listener]
@@ -30,8 +18,9 @@ module "kitchen_order_api" {
       # Database configuration - usando a mesma instância RDS do infra-core
       DB_HOST : data.terraform_remote_state.infra.outputs.rds_address
 
-      SQS_QUEUE_URL : module.sqs_kitchen_orders.sqs_queue_url
-      SQS_QUEUE_ARN : module.sqs_kitchen_orders.sqs_queue_arn
+      # SQS configuration
+      AWS_SQS_KITCHEN_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_queue_url
+      AWS_SQS_KITCHEN_ORDERS_ERROR_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_order_error_queue_url
   })
   ecs_container_secrets = merge(var.container_secrets,
     {

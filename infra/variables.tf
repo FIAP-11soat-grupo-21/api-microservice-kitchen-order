@@ -86,31 +86,3 @@ variable "authorization_name" {
   description = "Link do authorizer do API Gateway"
   type        = string
 }
-
-#########################################################
-################## Variáveis do SQS ####################
-#########################################################
-
-variable "sqs_delay_seconds" {
-  description = "Tempo em segundos que a entrega de todas as mensagens na fila será atrasada"
-  type        = number
-  default     = 0
-}
-
-variable "sqs_message_retention_seconds" {
-  description = "Número de segundos que o Amazon SQS retém uma mensagem"
-  type        = number
-  default     = 86400 # 1 dia
-}
-
-variable "sqs_receive_wait_time_seconds" {
-  description = "Tempo que uma chamada ReceiveMessage aguardará por uma mensagem chegar (long polling)"
-  type        = number
-  default     = 10
-}
-
-variable "sqs_visibility_timeout_seconds" {
-  description = "Timeout de visibilidade para a fila"
-  type        = number
-  default     = 30
-}
