@@ -14,6 +14,7 @@ func TestNewOrderStatusController(t *testing.T) {
 
 	if controller == nil {
 		t.Error("Expected controller to be created, got nil")
+		return
 	}
 
 	if controller.dataSource != mockOrderStatusDS {
