@@ -49,7 +49,7 @@ func TestErrorHandlerMiddleware_WithKitchenOrderNotFound(t *testing.T) {
 	// Simula um handler que gera erro de pedido não encontrado
 	handler := func(c *gin.Context) {
 		err := &exceptions.KitchenOrderNotFoundException{}
-		c.Error(err)
+		_ = c.Error(err)
 	}
 
 	// Act
@@ -74,7 +74,7 @@ func TestErrorHandlerMiddleware_WithInvalidKitchenOrderData(t *testing.T) {
 	// Simula um handler que gera erro de dados inválidos
 	handler := func(c *gin.Context) {
 		err := &exceptions.InvalidKitchenOrderDataException{}
-		c.Error(err)
+		_ = c.Error(err)
 	}
 
 	// Act
@@ -99,7 +99,7 @@ func TestErrorHandlerMiddleware_WithUnknownError(t *testing.T) {
 	// Simula um handler que gera erro desconhecido
 	handler := func(c *gin.Context) {
 		err := errors.New("unknown error")
-		c.Error(err)
+		_ = c.Error(err)
 	}
 
 	// Act
@@ -123,8 +123,8 @@ func TestErrorHandlerMiddleware_MultipleErrors(t *testing.T) {
 
 	// Simula um handler que gera múltiplos erros
 	handler := func(c *gin.Context) {
-		c.Error(errors.New("first error"))
-		c.Error(&exceptions.KitchenOrderNotFoundException{})
+		_ = c.Error(errors.New("first error"))
+		_ = c.Error(&exceptions.KitchenOrderNotFoundException{})
 	}
 
 	// Act
@@ -150,7 +150,7 @@ func TestErrorHandlerMiddleware_ContextAborted(t *testing.T) {
 	// Simula um handler que gera erro
 	handler := func(c *gin.Context) {
 		err := &exceptions.KitchenOrderNotFoundException{}
-		c.Error(err)
+		_ = c.Error(err)
 	}
 
 	// Act
@@ -180,7 +180,7 @@ func TestErrorHandlerMiddleware_ChainedHandlers(t *testing.T) {
 
 	handler2 := func(c *gin.Context) {
 		err := &exceptions.KitchenOrderNotFoundException{}
-		c.Error(err)
+		_ = c.Error(err)
 	}
 
 	// Act

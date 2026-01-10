@@ -31,7 +31,7 @@ func TestLocalFileProvider_UploadFile_Success(t *testing.T) {
 	fileContent := []byte("test content")
 	
 	// Cleanup before test
-	provider.DeleteFile(fileName)
+	_ = provider.DeleteFile(fileName)
 
 	// Act
 	err := provider.UploadFile(fileName, fileContent)
@@ -50,7 +50,7 @@ func TestLocalFileProvider_UploadFile_Success(t *testing.T) {
 	assert.Equal(t, fileContent, content)
 	
 	// Cleanup
-	provider.DeleteFile(fileName)
+	_ = provider.DeleteFile(fileName)
 	os.RemoveAll(provider.basePath)
 }
 
@@ -61,7 +61,7 @@ func TestLocalFileProvider_UploadFile_FileExists(t *testing.T) {
 	fileContent := []byte("test content")
 	
 	// Cria o arquivo primeiro
-	provider.UploadFile(fileName, fileContent)
+	_ = provider.UploadFile(fileName, fileContent)
 
 	// Act - tenta fazer upload novamente
 	err := provider.UploadFile(fileName, []byte("new content"))
@@ -71,7 +71,7 @@ func TestLocalFileProvider_UploadFile_FileExists(t *testing.T) {
 	assert.Equal(t, os.ErrExist, err)
 	
 	// Cleanup
-	provider.DeleteFile(fileName)
+	_ = provider.DeleteFile(fileName)
 	os.RemoveAll(provider.basePath)
 }
 
@@ -93,7 +93,7 @@ func TestLocalFileProvider_UploadFile_EmptyContent(t *testing.T) {
 	assert.NoError(t, err)
 	
 	// Cleanup
-	provider.DeleteFile(fileName)
+	_ = provider.DeleteFile(fileName)
 	os.RemoveAll(provider.basePath)
 }
 
@@ -104,7 +104,7 @@ func TestLocalFileProvider_DeleteFile_Success(t *testing.T) {
 	fileContent := []byte("content to delete")
 	
 	// Cria o arquivo primeiro
-	provider.UploadFile(fileName, fileContent)
+	_ = provider.UploadFile(fileName, fileContent)
 
 	// Act
 	err := provider.DeleteFile(fileName)
@@ -144,7 +144,7 @@ func TestLocalFileProvider_fileExists_True(t *testing.T) {
 	fileContent := []byte("test content")
 	
 	// Cria o arquivo
-	provider.UploadFile(fileName, fileContent)
+	_ = provider.UploadFile(fileName, fileContent)
 
 	// Act
 	exists := provider.fileExists(fileName)
@@ -153,7 +153,7 @@ func TestLocalFileProvider_fileExists_True(t *testing.T) {
 	assert.True(t, exists)
 	
 	// Cleanup
-	provider.DeleteFile(fileName)
+	_ = provider.DeleteFile(fileName)
 	os.RemoveAll(provider.basePath)
 }
 
@@ -257,7 +257,7 @@ func TestLocalFileProvider_FileWithSubdirectory(t *testing.T) {
 		// Se passar, verifica se o arquivo foi criado
 		exists := provider.fileExists(fileName)
 		assert.True(t, exists)
-		provider.DeleteFile(fileName)
+		_ = provider.DeleteFile(fileName)
 	}
 	
 	// Cleanup
