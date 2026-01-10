@@ -36,9 +36,11 @@ type Config struct {
 			URL          string
 			Exchange     string
 			KitchenQueue string
+			OrdersQueue  string
 		}
 		SQS struct {
-			QueueURL string
+			QueueURL       string
+			OrdersQueueURL string
 		}
 	}
 }
@@ -98,8 +100,16 @@ func (c *Config) Load() {
 		if c.MessageBroker.RabbitMQ.KitchenQueue == "" {
 			c.MessageBroker.RabbitMQ.KitchenQueue = "kitchen-order.create" // fallback
 		}
+		c.MessageBroker.RabbitMQ.OrdersQueue = os.Getenv("RABBITMQ_ORDERS_QUEUE")
+		if c.MessageBroker.RabbitMQ.OrdersQueue == "" {
+			c.MessageBroker.RabbitMQ.OrdersQueue = "orders.updates" // fallback
+		}
 	} else if c.MessageBroker.Type == "sqs" {
-		c.MessageBroker.SQS.QueueURL = getEnv("SQS_QUEUE_URL")
+		c.MessageBroker.SQS.QueueURL = getEnv("AWS_SQS_KITCHEN_ORDERS_QUEUE")
+		c.MessageBroker.SQS.OrdersQueueURL = os.Getenv("AWS_SQS_ORDERS_QUEUE")
+		if c.MessageBroker.SQS.OrdersQueueURL == "" {
+			c.MessageBroker.SQS.OrdersQueueURL = getEnv("AWS_SQS_ORDERS_QUEUE")
+		}
 	}
 }
 

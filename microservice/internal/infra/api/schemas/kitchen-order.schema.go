@@ -4,6 +4,10 @@ import (
 	"time"
 )
 
+type UpdateKitchenOrderRequestSchema struct {
+	StatusID string `json:"status_id" binding:"required"`
+}
+
 type UpdateKitchenOrderSchema struct {
 	StatusID string `json:"status_id" binding:"required"`
 }

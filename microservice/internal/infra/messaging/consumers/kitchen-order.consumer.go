@@ -21,7 +21,7 @@ type KitchenOrderConsumer struct {
 func NewKitchenOrderConsumer(broker interfaces.MessageBroker) *KitchenOrderConsumer {
 	kitchenOrderDataSource := factories.NewKitchenOrderDataSource()
 	orderStatusDataSource := factories.NewOrderStatusDataSource()
-	kitchenOrderController := controllers.NewKitchenOrderController(kitchenOrderDataSource, orderStatusDataSource)
+	kitchenOrderController := controllers.NewKitchenOrderController(kitchenOrderDataSource, orderStatusDataSource, broker)
 
 	return &KitchenOrderConsumer{
 		broker:                 broker,

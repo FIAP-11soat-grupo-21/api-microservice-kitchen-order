@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/factories"
 	"tech_challenge/internal/infra/api/schemas"
+	shared_factories "tech_challenge/internal/shared/factories"
 )
 
 type KitchenOrderHandler struct {
@@ -21,8 +23,15 @@ type KitchenOrderHandler struct {
 func NewKitchenOrderHandler() *KitchenOrderHandler {
 	kitchenOrderDataSource := factories.NewKitchenOrderDataSource()
 	orderStatusDataSource := factories.NewOrderStatusDataSource()
+	
+	messageBroker, err := shared_factories.NewMessageBroker(context.Background())
+	if err != nil {
+		log.Printf("Warning: Failed to create message broker: %v", err)
+		// Continue without message broker for now
+		messageBroker = nil
+	}
 
-	kitchenOrderController := controllers.NewKitchenOrderController(kitchenOrderDataSource, orderStatusDataSource)
+	kitchenOrderController := controllers.NewKitchenOrderController(kitchenOrderDataSource, orderStatusDataSource, messageBroker)
 
 	return &KitchenOrderHandler{
 		kitchenOrderController: *kitchenOrderController,
@@ -108,6 +117,65 @@ func (h *KitchenOrderHandler) FindByID(ctx *gin.Context) {
 	kitchenOrderID := ctx.Param("id")
 
 	kitchenOrder, err := h.kitchenOrderController.FindByID(kitchenOrderID)
+
+	if err != nil {
+		if ctxErr := ctx.Error(err); ctxErr != nil {
+			log.Printf("Error setting context error: %v", ctxErr)
+		}
+		return
+	}
+
+	items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
+	for i, item := range kitchenOrder.Items {
+		items[i] = schemas.OrderItemResponseSchema{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+		}
+	}
+
+	kitchenOrderResponse := schemas.KitchenOrderResponseSchema{
+		ID:         kitchenOrder.ID,
+		OrderID:    kitchenOrder.OrderID,
+		CustomerID: kitchenOrder.CustomerID,
+		Amount:     kitchenOrder.Amount,
+		Status:     kitchenOrder.Status.Name,
+		Slug:       kitchenOrder.Slug,
+		Items:      items,
+		CreatedAt:  kitchenOrder.CreatedAt,
+		UpdatedAt:  kitchenOrder.UpdatedAt,
+	}
+
+	ctx.JSON(http.StatusOK, kitchenOrderResponse)
+}
+
+// @Summary Update a kitchenOrder status
+// @Tags KitchenOrders
+// @Accept json
+// @Produce json
+// @Param id path string true "KitchenOrder ID"
+// @Param request body schemas.UpdateKitchenOrderRequestSchema true "Update request"
+// @Success 200 {object} schemas.KitchenOrderResponseSchema
+// @Failure 400 {object} schemas.InvalidKitchenOrderDataErrorSchema
+// @Failure 404 {object} schemas.KitchenOrderNotFoundErrorSchema
+// @Router /kitchen-orders/{id} [put]
+func (h *KitchenOrderHandler) Update(ctx *gin.Context) {
+	kitchenOrderID := ctx.Param("id")
+
+	var request schemas.UpdateKitchenOrderRequestSchema
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updateDTO := dtos.UpdateKitchenOrderDTO{
+		ID:       kitchenOrderID,
+		StatusID: request.StatusID,
+	}
+
+	kitchenOrder, err := h.kitchenOrderController.Update(updateDTO)
 
 	if err != nil {
 		if ctxErr := ctx.Error(err); ctxErr != nil {

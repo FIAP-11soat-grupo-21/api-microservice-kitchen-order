@@ -1,13 +1,46 @@
 package controllers
 
 import (
+	"context"
+	"os"
 	"testing"
 	"time"
 
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/daos"
 	"tech_challenge/internal/shared/config/constants"
+	"tech_challenge/internal/shared/interfaces"
 )
+
+func setupTestEnv() {
+	os.Setenv("GO_ENV", "test")
+	os.Setenv("API_PORT", "8080")
+	os.Setenv("API_HOST", "localhost")
+	os.Setenv("DB_RUN_MIGRATIONS", "false")
+	os.Setenv("DB_HOST", "localhost")
+	os.Setenv("DB_NAME", "test")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USERNAME", "test")
+	os.Setenv("DB_PASSWORD", "test")
+	os.Setenv("AWS_REGION", "us-east-1")
+	os.Setenv("MESSAGE_BROKER_TYPE", "rabbitmq")
+	os.Setenv("RABBITMQ_URL", "amqp://localhost:5672")
+	os.Setenv("AWS_SQS_KITCHEN_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/test-queue")
+	os.Setenv("AWS_SQS_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue")
+}
+
+func cleanupTestEnv() {
+	envVars := []string{
+		"GO_ENV", "API_PORT", "API_HOST", "DB_RUN_MIGRATIONS",
+		"DB_HOST", "DB_NAME", "DB_PORT", "DB_USERNAME", "DB_PASSWORD",
+		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
+		"AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
+	}
+	
+	for _, envVar := range envVars {
+		os.Unsetenv(envVar)
+	}
+}
 
 // Mock implementations
 type MockKitchenOrderDataSource struct {
@@ -67,6 +100,33 @@ func (m *MockOrderStatusDataSource) FindByID(id string) (daos.OrderStatusDAO, er
 	return daos.OrderStatusDAO{}, nil
 }
 
+// Mock MessageBroker
+type MockMessageBroker struct{}
+
+func (m *MockMessageBroker) Connect(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Close() error {
+	return nil
+}
+
+func (m *MockMessageBroker) Publish(ctx context.Context, queue string, message interfaces.Message) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Subscribe(ctx context.Context, queue string, handler interfaces.MessageHandler) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Stop() error {
+	return nil
+}
+
 // Test helpers
 func createTestController() (*KitchenOrderController, *MockKitchenOrderDataSource, *MockOrderStatusDataSource) {
 	mockKitchenOrderDS := &MockKitchenOrderDataSource{kitchenOrders: []daos.KitchenOrderDAO{}}
@@ -76,7 +136,8 @@ func createTestController() (*KitchenOrderController, *MockKitchenOrderDataSourc
 			{ID: constants.KITCHEN_ORDER_STATUS_PREPARING_ID, Name: "Em preparação"},
 		},
 	}
-	controller := NewKitchenOrderController(mockKitchenOrderDS, mockOrderStatusDS)
+	mockMessageBroker := &MockMessageBroker{}
+	controller := NewKitchenOrderController(mockKitchenOrderDS, mockOrderStatusDS, mockMessageBroker)
 	return controller, mockKitchenOrderDS, mockOrderStatusDS
 }
 
@@ -173,6 +234,9 @@ func TestKitchenOrderController_FindByID(t *testing.T) {
 }
 
 func TestKitchenOrderController_Update(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	controller, mockKitchenOrderDS, _ := createTestController()
 	
 	testOrder := createTestKitchenOrder("550e8400-e29b-41d4-a716-446655440000")

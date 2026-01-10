@@ -1,12 +1,46 @@
 package handlers
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+func setupTestEnv() {
+	os.Setenv("GO_ENV", "test")
+	os.Setenv("API_PORT", "8080")
+	os.Setenv("API_HOST", "localhost")
+	os.Setenv("DB_RUN_MIGRATIONS", "false")
+	os.Setenv("DB_HOST", "localhost")
+	os.Setenv("DB_NAME", "test")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USERNAME", "test")
+	os.Setenv("DB_PASSWORD", "test")
+	os.Setenv("AWS_REGION", "us-east-1")
+	os.Setenv("MESSAGE_BROKER_TYPE", "rabbitmq")
+	os.Setenv("RABBITMQ_URL", "amqp://localhost:5672")
+	os.Setenv("AWS_SQS_KITCHEN_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/test-queue")
+	os.Setenv("AWS_SQS_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue")
+}
+
+func cleanupTestEnv() {
+	envVars := []string{
+		"GO_ENV", "API_PORT", "API_HOST", "DB_RUN_MIGRATIONS",
+		"DB_HOST", "DB_NAME", "DB_PORT", "DB_USERNAME", "DB_PASSWORD",
+		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
+		"AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
+	}
+	
+	for _, envVar := range envVars {
+		os.Unsetenv(envVar)
+	}
+}
+
 func TestNewKitchenOrderHandler(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 
 	assert.NotNil(t, handler)
@@ -21,6 +55,9 @@ func TestKitchenOrderHandler_Structure(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Methods_Exist(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 	
 	// Verify methods exist
@@ -29,6 +66,9 @@ func TestKitchenOrderHandler_Methods_Exist(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Controller_Initialization(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 	
 	// Verify controller is properly initialized
@@ -43,6 +83,9 @@ func TestKitchenOrderHandler_Controller_Initialization(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Type_Assertions(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 	
 	// Verify correct type
@@ -53,6 +96,9 @@ func TestKitchenOrderHandler_Type_Assertions(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Multiple_Instances(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	// Create multiple instances
 	handlers := make([]*KitchenOrderHandler, 5)
 	
@@ -70,6 +116,9 @@ func TestKitchenOrderHandler_Multiple_Instances(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Interface_Compliance(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 	
 	// Verify expected methods exist
@@ -81,6 +130,9 @@ func TestKitchenOrderHandler_Interface_Compliance(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Memory_Safety(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	// Test for obvious memory leaks
 	for i := 0; i < 100; i++ {
 		handler := NewKitchenOrderHandler()
@@ -90,6 +142,9 @@ func TestKitchenOrderHandler_Memory_Safety(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Initialization_Consistency(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	// Test consistent initialization
 	handler1 := NewKitchenOrderHandler()
 	handler2 := NewKitchenOrderHandler()
@@ -105,6 +160,9 @@ func TestKitchenOrderHandler_Initialization_Consistency(t *testing.T) {
 }
 
 func TestKitchenOrderHandler_Field_Access(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+	
 	handler := NewKitchenOrderHandler()
 	
 	// Test field access doesn't panic

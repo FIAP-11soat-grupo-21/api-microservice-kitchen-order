@@ -16,7 +16,8 @@ func TestUpdateKitchenOrderUseCase_InvalidID(t *testing.T) {
 	dataStore := NewMockDataStore()
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	mockMessageBroker := &MockMessageBroker{}
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, mockMessageBroker)
 
 	invalidIDs := []string{
 		"",
@@ -52,7 +53,7 @@ func TestUpdateKitchenOrderUseCase_OrderNotFound(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       "550e8400-e29b-41d4-a716-446655440000",
@@ -89,7 +90,7 @@ func TestUpdateKitchenOrderUseCase_StatusNotFound(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       orderID,
@@ -130,7 +131,7 @@ func TestUpdateKitchenOrderUseCase_GatewayUpdateError(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       orderID,
@@ -186,7 +187,7 @@ func TestUpdateKitchenOrderUseCase_AllStatusTransitions(t *testing.T) {
 
 		kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 		orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-		useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+		useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 		updateDTO := dtos.UpdateKitchenOrderDTO{
 			ID:       orderID,
@@ -225,7 +226,7 @@ func TestUpdateKitchenOrderUseCase_UpdatedAtIsSet(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       orderID,
@@ -268,7 +269,7 @@ func TestUpdateKitchenOrderUseCase_StatusNameIsUpdated(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       orderID,
@@ -309,7 +310,7 @@ func TestUpdateKitchenOrderUseCase_PreservesOrderData(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	updateDTO := dtos.UpdateKitchenOrderDTO{
 		ID:       orderID,
@@ -356,7 +357,7 @@ func TestUpdateKitchenOrderUseCase_MultipleUpdates(t *testing.T) {
 
 	kitchenOrderGateway := NewMockKitchenOrderGateway(dataStore)
 	orderStatusGateway := NewMockOrderStatusGateway(dataStore)
-	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway)
+	useCase := NewUpdateKitchenOrderUseCase(kitchenOrderGateway, orderStatusGateway, &MockMessageBroker{})
 
 	// Sequência de updates
 	updates := []string{

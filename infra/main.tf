@@ -20,6 +20,7 @@ module "kitchen_order_api" {
 
       # SQS configuration
       AWS_SQS_KITCHEN_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_queue_url
+      AWS_SQS_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_orders_queue_url
       AWS_SQS_KITCHEN_ORDERS_ERROR_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_order_error_queue_url
   })
   ecs_container_secrets = merge(var.container_secrets,
