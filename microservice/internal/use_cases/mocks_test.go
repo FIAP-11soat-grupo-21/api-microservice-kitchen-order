@@ -11,8 +11,12 @@ import (
 
 // MockDataStore simula um banco de dados em memória para testes
 type MockDataStore struct {
-	kitchenOrders []entities.KitchenOrder
-	orderStatuses []entities.OrderStatus
+	kitchenOrders              []entities.KitchenOrder
+	orderStatuses              []entities.OrderStatus
+	shouldReturnError          bool
+	errorToReturn              error
+	shouldReturnErrorOnUpdate  bool
+	updateErrorToReturn        error
 }
 
 func NewMockDataStore() *MockDataStore {
@@ -30,8 +34,12 @@ func NewMockDataStore() *MockDataStore {
 	}
 
 	return &MockDataStore{
-		kitchenOrders: []entities.KitchenOrder{},
-		orderStatuses: orderStatuses,
+		kitchenOrders:              []entities.KitchenOrder{},
+		orderStatuses:              orderStatuses,
+		shouldReturnError:          false,
+		errorToReturn:              nil,
+		shouldReturnErrorOnUpdate:  false,
+		updateErrorToReturn:        nil,
 	}
 }
 
@@ -41,6 +49,10 @@ type MockKitchenOrderDataSource struct {
 }
 
 func (ds *MockKitchenOrderDataSource) Insert(kitchenOrder daos.KitchenOrderDAO) error {
+	if ds.dataStore.shouldReturnError {
+		return ds.dataStore.errorToReturn
+	}
+
 	status, _ := entities.NewOrderStatus(kitchenOrder.Status.ID, kitchenOrder.Status.Name)
 	order, _ := entities.NewKitchenOrder(
 		kitchenOrder.ID, kitchenOrder.OrderID, kitchenOrder.Slug,
@@ -51,6 +63,10 @@ func (ds *MockKitchenOrderDataSource) Insert(kitchenOrder daos.KitchenOrderDAO) 
 }
 
 func (ds *MockKitchenOrderDataSource) FindByID(id string) (daos.KitchenOrderDAO, error) {
+	if ds.dataStore.shouldReturnError {
+		return daos.KitchenOrderDAO{}, ds.dataStore.errorToReturn
+	}
+
 	for _, order := range ds.dataStore.kitchenOrders {
 		if order.ID == id {
 			return ds.entityToDAO(order), nil
@@ -60,6 +76,10 @@ func (ds *MockKitchenOrderDataSource) FindByID(id string) (daos.KitchenOrderDAO,
 }
 
 func (ds *MockKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error) {
+	if ds.dataStore.shouldReturnError {
+		return nil, ds.dataStore.errorToReturn
+	}
+
 	var result []daos.KitchenOrderDAO
 	for _, order := range ds.dataStore.kitchenOrders {
 		if ds.matchesFilter(order, filter) {
@@ -70,6 +90,10 @@ func (ds *MockKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([
 }
 
 func (ds *MockKitchenOrderDataSource) Update(kitchenOrder daos.KitchenOrderDAO) error {
+	if ds.dataStore.shouldReturnErrorOnUpdate {
+		return ds.dataStore.updateErrorToReturn
+	}
+
 	for i, order := range ds.dataStore.kitchenOrders {
 		if order.ID == kitchenOrder.ID {
 			status, _ := entities.NewOrderStatus(kitchenOrder.Status.ID, kitchenOrder.Status.Name)
@@ -77,6 +101,18 @@ func (ds *MockKitchenOrderDataSource) Update(kitchenOrder daos.KitchenOrderDAO) 
 				kitchenOrder.ID, kitchenOrder.OrderID, kitchenOrder.Slug,
 				*status, kitchenOrder.CreatedAt, kitchenOrder.UpdatedAt,
 			)
+			updatedOrder.Amount = kitchenOrder.Amount
+			updatedOrder.CustomerID = kitchenOrder.CustomerID
+			
+			// Adiciona os itens
+			for _, itemDAO := range kitchenOrder.Items {
+				item, _ := entities.NewOrderItem(
+					itemDAO.ID, itemDAO.OrderID, itemDAO.ProductID,
+					itemDAO.Quantity, itemDAO.UnitPrice,
+				)
+				updatedOrder.AddItem(*item)
+			}
+			
 			ds.dataStore.kitchenOrders[i] = *updatedOrder
 			return nil
 		}
@@ -85,14 +121,28 @@ func (ds *MockKitchenOrderDataSource) Update(kitchenOrder daos.KitchenOrderDAO) 
 }
 
 func (ds *MockKitchenOrderDataSource) entityToDAO(order entities.KitchenOrder) daos.KitchenOrderDAO {
+	items := make([]daos.OrderItemDAO, len(order.Items))
+	for i, item := range order.Items {
+		items[i] = daos.OrderItemDAO{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+		}
+	}
+
 	return daos.KitchenOrderDAO{
-		ID:      order.ID,
-		OrderID: order.OrderID,
-		Slug:    order.Slug.Value(),
+		ID:         order.ID,
+		OrderID:    order.OrderID,
+		CustomerID: order.CustomerID,
+		Amount:     order.Amount,
+		Slug:       order.Slug.Value(),
 		Status: daos.OrderStatusDAO{
 			ID:   order.Status.ID,
 			Name: order.Status.Name.Value(),
 		},
+		Items:     items,
 		CreatedAt: order.CreatedAt,
 		UpdatedAt: order.UpdatedAt,
 	}
@@ -105,6 +155,10 @@ func (ds *MockKitchenOrderDataSource) matchesFilter(order entities.KitchenOrder,
 	if filter.CreatedAtTo != nil && order.CreatedAt.After(*filter.CreatedAtTo) {
 		return false
 	}
+	if filter.StatusID != nil && order.Status.ID != constants.KITCHEN_ORDER_STATUS_RECEIVED_ID {
+		// Simula filtro por status - aqui simplificamos para o teste
+		return false
+	}
 	return true
 }
 
@@ -114,6 +168,10 @@ type MockOrderStatusDataSource struct {
 }
 
 func (ds *MockOrderStatusDataSource) FindByID(id string) (daos.OrderStatusDAO, error) {
+	if ds.dataStore.shouldReturnError {
+		return daos.OrderStatusDAO{}, ds.dataStore.errorToReturn
+	}
+
 	for _, status := range ds.dataStore.orderStatuses {
 		if status.ID == id {
 			return daos.OrderStatusDAO{
@@ -126,6 +184,10 @@ func (ds *MockOrderStatusDataSource) FindByID(id string) (daos.OrderStatusDAO, e
 }
 
 func (ds *MockOrderStatusDataSource) FindAll() ([]daos.OrderStatusDAO, error) {
+	if ds.dataStore.shouldReturnError {
+		return nil, ds.dataStore.errorToReturn
+	}
+
 	result := make([]daos.OrderStatusDAO, len(ds.dataStore.orderStatuses))
 	for i, status := range ds.dataStore.orderStatuses {
 		result[i] = daos.OrderStatusDAO{
