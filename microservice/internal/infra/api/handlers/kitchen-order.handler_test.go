@@ -1,11 +1,108 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"tech_challenge/internal/application/controllers"
+	"tech_challenge/internal/application/dtos"
+	"tech_challenge/internal/daos"
+	shared_interfaces "tech_challenge/internal/shared/interfaces"
 )
+
+type MockKitchenOrderDataSource struct {
+	mock.Mock
+}
+
+func (m *MockKitchenOrderDataSource) Insert(kitchenOrder daos.KitchenOrderDAO) error {
+	args := m.Called(kitchenOrder)
+	return args.Error(0)
+}
+
+func (m *MockKitchenOrderDataSource) FindByID(id string) (daos.KitchenOrderDAO, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return daos.KitchenOrderDAO{}, args.Error(1)
+	}
+	return args.Get(0).(daos.KitchenOrderDAO), args.Error(1)
+}
+
+func (m *MockKitchenOrderDataSource) FindAll(filter dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]daos.KitchenOrderDAO), args.Error(1)
+}
+
+func (m *MockKitchenOrderDataSource) Update(kitchenOrder daos.KitchenOrderDAO) error {
+	args := m.Called(kitchenOrder)
+	return args.Error(0)
+}
+
+type MockOrderStatusDataSource struct {
+	mock.Mock
+}
+
+func (m *MockOrderStatusDataSource) FindByID(id string) (daos.OrderStatusDAO, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return daos.OrderStatusDAO{}, args.Error(1)
+	}
+	return args.Get(0).(daos.OrderStatusDAO), args.Error(1)
+}
+
+func (m *MockOrderStatusDataSource) FindAll() ([]daos.OrderStatusDAO, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]daos.OrderStatusDAO), args.Error(1)
+}
+
+type MockMessageBroker struct {
+	mock.Mock
+}
+
+func (m *MockMessageBroker) Connect(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockMessageBroker) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockMessageBroker) Publish(ctx context.Context, queue string, message shared_interfaces.Message) error {
+	args := m.Called(ctx, queue, message)
+	return args.Error(0)
+}
+
+func (m *MockMessageBroker) Subscribe(ctx context.Context, queue string, handler shared_interfaces.MessageHandler) error {
+	args := m.Called(ctx, queue, handler)
+	return args.Error(0)
+}
+
+func (m *MockMessageBroker) Start(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockMessageBroker) Stop() error {
+	args := m.Called()
+	return args.Error(0)
+}
 
 func setupTestEnv() {
 	os.Setenv("GO_ENV", "test")
@@ -31,146 +128,1005 @@ func cleanupTestEnv() {
 		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
 		"AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
 	}
-	
+
 	for _, envVar := range envVars {
 		os.Unsetenv(envVar)
 	}
 }
 
+func setupTestRouter() *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	return router
+}
+
 func TestNewKitchenOrderHandler(t *testing.T) {
 	setupTestEnv()
 	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
 
-	assert.NotNil(t, handler)
-	assert.NotNil(t, handler.kitchenOrderController)
+	t.Run("should create handler successfully", func(t *testing.T) {
+		handler := NewKitchenOrderHandler()
+
+		assert.NotNil(t, handler)
+		assert.NotNil(t, handler.kitchenOrderController)
+	})
+
+	t.Run("should create new instance on each call", func(t *testing.T) {
+		handler1 := NewKitchenOrderHandler()
+		handler2 := NewKitchenOrderHandler()
+
+		assert.NotNil(t, handler1)
+		assert.NotNil(t, handler2)
+		assert.NotSame(t, handler1, handler2)
+	})
 }
 
-func TestKitchenOrderHandler_Structure(t *testing.T) {
-	handler := &KitchenOrderHandler{}
-	
-	assert.NotNil(t, handler)
-	assert.IsType(t, &KitchenOrderHandler{}, handler)
-}
-
-func TestKitchenOrderHandler_Methods_Exist(t *testing.T) {
+func TestFindAll_Success(t *testing.T) {
 	setupTestEnv()
 	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
-	
-	// Verify methods exist
-	assert.NotNil(t, handler.FindAll)
-	assert.NotNil(t, handler.FindByID)
-}
 
-func TestKitchenOrderHandler_Controller_Initialization(t *testing.T) {
-	setupTestEnv()
-	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
-	
-	// Verify controller is properly initialized
-	assert.NotNil(t, handler.kitchenOrderController)
-	
-	// Test multiple instances
-	handler2 := NewKitchenOrderHandler()
-	assert.NotNil(t, handler2.kitchenOrderController)
-	
-	// Verify they are different instances
-	assert.NotSame(t, handler, handler2)
-}
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
 
-func TestKitchenOrderHandler_Type_Assertions(t *testing.T) {
-	setupTestEnv()
-	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
-	
-	// Verify correct type
-	assert.IsType(t, &KitchenOrderHandler{}, handler)
-	
-	// Verify not nil
-	assert.NotNil(t, handler)
-}
-
-func TestKitchenOrderHandler_Multiple_Instances(t *testing.T) {
-	setupTestEnv()
-	defer cleanupTestEnv()
-	
-	// Create multiple instances
-	handlers := make([]*KitchenOrderHandler, 5)
-	
-	for i := 0; i < 5; i++ {
-		handlers[i] = NewKitchenOrderHandler()
-		assert.NotNil(t, handlers[i])
+	now := time.Now()
+	kitchenOrders := []daos.KitchenOrderDAO{
+		{
+			ID:         "ko-001",
+			OrderID:    "order-001",
+			CustomerID: nil,
+			Amount:     100.50,
+			Slug:       "001",
+			Status: daos.OrderStatusDAO{
+				ID:   "1",
+				Name: "Recebido",
+			},
+			Items: []daos.OrderItemDAO{
+				{
+					ID:        "item-001",
+					OrderID:   "order-001",
+					ProductID: "prod-001",
+					Quantity:  2,
+					UnitPrice: 50.25,
+				},
+			},
+			CreatedAt: now,
+			UpdatedAt: &now,
+		},
 	}
-	
-	// Verify all are different
-	for i := 0; i < 5; i++ {
-		for j := i + 1; j < 5; j++ {
-			assert.NotSame(t, handlers[i], handlers[j])
+
+	mockDataSource.On("FindAll", mock.Anything).Return(kitchenOrders, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Len(t, response, 1)
+	assert.Equal(t, "ko-001", response[0]["id"])
+	assert.Equal(t, "order-001", response[0]["order_id"])
+	assert.Equal(t, 100.50, response[0]["amount"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindAll_WithFilters(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	mockDataSource.On("FindAll", mock.MatchedBy(func(filter dtos.KitchenOrderFilter) bool {
+		return filter.CreatedAtFrom != nil && filter.CreatedAtTo != nil
+	})).Return([]daos.KitchenOrderDAO{}, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders?created_at_from=2024-01-01T00:00:00Z&created_at_to=2024-12-31T23:59:59Z", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindByID_Success(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     100.50,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "1",
+			Name: "Recebido",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-001",
+				OrderID:   "order-001",
+				ProductID: "prod-001",
+				Quantity:  2,
+				UnitPrice: 50.25,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("FindByID", kitchenOrderID).Return(kitchenOrder, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, kitchenOrderID, response["id"])
+	assert.Equal(t, "order-001", response["order_id"])
+	assert.Equal(t, 100.50, response["amount"])
+	assert.Equal(t, "Recebido", response["status"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestUpdate_Success(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	updatedKitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     100.50,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "2",
+			Name: "Em preparação",
+		},
+		Items:     []daos.OrderItemDAO{},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("Update", mock.Anything).Return(nil)
+	mockDataSource.On("FindByID", kitchenOrderID).Return(updatedKitchenOrder, nil)
+	mockStatusDataSource.On("FindByID", "2").Return(daos.OrderStatusDAO{ID: "2", Name: "Em preparação"}, nil)
+	mockMessageBroker.On("Publish", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.PUT("/kitchen-orders/:id", handler.Update)
+
+	requestBody := map[string]interface{}{
+		"status_id": "2",
+	}
+
+	jsonBody, _ := json.Marshal(requestBody)
+	req, _ := http.NewRequest("PUT", "/kitchen-orders/"+kitchenOrderID, bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, kitchenOrderID, response["id"])
+	assert.Equal(t, "Em preparação", response["status"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestUpdate_InvalidJSON(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.PUT("/kitchen-orders/:id", handler.Update)
+
+	req, _ := http.NewRequest("PUT", "/kitchen-orders/ko-001", bytes.NewBuffer([]byte("invalid json")))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdate_MissingStatusID(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.PUT("/kitchen-orders/:id", handler.Update)
+
+	requestBody := map[string]interface{}{}
+	jsonBody, _ := json.Marshal(requestBody)
+	req, _ := http.NewRequest("PUT", "/kitchen-orders/ko-001", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestFindAll_WithItems(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrders := []daos.KitchenOrderDAO{
+		{
+			ID:         "550e8400-e29b-41d4-a716-446655440000",
+			OrderID:    "order-001",
+			CustomerID: nil,
+			Amount:     100.50,
+			Slug:       "001",
+			Status: daos.OrderStatusDAO{
+				ID:   "1",
+				Name: "Recebido",
+			},
+			Items: []daos.OrderItemDAO{
+				{
+					ID:        "item-001",
+					OrderID:   "order-001",
+					ProductID: "prod-001",
+					Quantity:  2,
+					UnitPrice: 50.25,
+				},
+				{
+					ID:        "item-002",
+					OrderID:   "order-001",
+					ProductID: "prod-002",
+					Quantity:  1,
+					UnitPrice: 50.25,
+				},
+			},
+			CreatedAt: now,
+			UpdatedAt: &now,
+		},
+	}
+
+	mockDataSource.On("FindAll", mock.Anything).Return(kitchenOrders, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Len(t, response, 1)
+
+	items := response[0]["items"].([]interface{})
+	assert.Len(t, items, 2)
+
+	item1 := items[0].(map[string]interface{})
+	assert.Equal(t, "item-001", item1["id"])
+	assert.Equal(t, "order-001", item1["order_id"])
+	assert.Equal(t, "prod-001", item1["product_id"])
+	assert.Equal(t, float64(2), item1["quantity"])
+	assert.Equal(t, 50.25, item1["unit_price"])
+
+	item2 := items[1].(map[string]interface{})
+	assert.Equal(t, "item-002", item2["id"])
+	assert.Equal(t, "prod-002", item2["product_id"])
+	assert.Equal(t, float64(1), item2["quantity"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindByID_WithMultipleItems(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     150.75,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "1",
+			Name: "Recebido",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-001",
+				OrderID:   "order-001",
+				ProductID: "prod-001",
+				Quantity:  2,
+				UnitPrice: 50.25,
+			},
+			{
+				ID:        "item-002",
+				OrderID:   "order-001",
+				ProductID: "prod-002",
+				Quantity:  1,
+				UnitPrice: 50.25,
+			},
+			{
+				ID:        "item-003",
+				OrderID:   "order-001",
+				ProductID: "prod-003",
+				Quantity:  3,
+				UnitPrice: 16.75,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("FindByID", kitchenOrderID).Return(kitchenOrder, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	items := response["items"].([]interface{})
+	assert.Len(t, items, 3)
+
+	for i, item := range items {
+		itemMap := item.(map[string]interface{})
+		assert.NotEmpty(t, itemMap["id"])
+		assert.Equal(t, "order-001", itemMap["order_id"])
+		assert.NotEmpty(t, itemMap["product_id"])
+		assert.Greater(t, itemMap["quantity"], float64(0))
+		assert.Greater(t, itemMap["unit_price"], 0.0)
+
+		if i == 0 {
+			assert.Equal(t, "item-001", itemMap["id"])
+			assert.Equal(t, "prod-001", itemMap["product_id"])
+		} else if i == 1 {
+			assert.Equal(t, "item-002", itemMap["id"])
+			assert.Equal(t, "prod-002", itemMap["product_id"])
+		} else if i == 2 {
+			assert.Equal(t, "item-003", itemMap["id"])
+			assert.Equal(t, "prod-003", itemMap["product_id"])
 		}
 	}
+
+	mockDataSource.AssertExpectations(t)
 }
 
-func TestKitchenOrderHandler_Interface_Compliance(t *testing.T) {
+func TestFindAll_EmptyItems(t *testing.T) {
 	setupTestEnv()
 	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
-	
-	// Verify expected methods exist
-	assert.NotNil(t, handler.FindAll)
-	assert.NotNil(t, handler.FindByID)
-	
-	// Verify correct type
-	assert.IsType(t, &KitchenOrderHandler{}, handler)
-}
 
-func TestKitchenOrderHandler_Memory_Safety(t *testing.T) {
-	setupTestEnv()
-	defer cleanupTestEnv()
-	
-	// Test for obvious memory leaks
-	for i := 0; i < 100; i++ {
-		handler := NewKitchenOrderHandler()
-		assert.NotNil(t, handler)
-		// Let handler go out of scope to be collected by GC
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrders := []daos.KitchenOrderDAO{
+		{
+			ID:         "550e8400-e29b-41d4-a716-446655440000",
+			OrderID:    "order-001",
+			CustomerID: nil,
+			Amount:     0,
+			Slug:       "001",
+			Status: daos.OrderStatusDAO{
+				ID:   "1",
+				Name: "Recebido",
+			},
+			Items:     []daos.OrderItemDAO{},
+			CreatedAt: now,
+			UpdatedAt: &now,
+		},
 	}
+
+	mockDataSource.On("FindAll", mock.Anything).Return(kitchenOrders, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Len(t, response, 1)
+
+	items := response[0]["items"].([]interface{})
+	assert.Len(t, items, 0)
+
+	mockDataSource.AssertExpectations(t)
 }
 
-func TestKitchenOrderHandler_Initialization_Consistency(t *testing.T) {
+func TestFindByID_EmptyItems(t *testing.T) {
 	setupTestEnv()
 	defer cleanupTestEnv()
-	
-	// Test consistent initialization
-	handler1 := NewKitchenOrderHandler()
-	handler2 := NewKitchenOrderHandler()
-	
-	// Both should be properly initialized
-	assert.NotNil(t, handler1)
-	assert.NotNil(t, handler2)
-	assert.NotNil(t, handler1.kitchenOrderController)
-	assert.NotNil(t, handler2.kitchenOrderController)
-	
-	// Should be different instances
-	assert.NotSame(t, handler1, handler2)
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     0,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "1",
+			Name: "Recebido",
+		},
+		Items:     []daos.OrderItemDAO{},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("FindByID", kitchenOrderID).Return(kitchenOrder, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	items := response["items"].([]interface{})
+	assert.Len(t, items, 0)
+
+	mockDataSource.AssertExpectations(t)
 }
 
-func TestKitchenOrderHandler_Field_Access(t *testing.T) {
+func TestUpdate_WithItems(t *testing.T) {
 	setupTestEnv()
 	defer cleanupTestEnv()
-	
-	handler := NewKitchenOrderHandler()
-	
-	// Test field access doesn't panic
-	assert.NotPanics(t, func() {
-		_ = handler.kitchenOrderController
-	})
-	
-	// Verify field is accessible and not nil
-	controller := handler.kitchenOrderController
-	assert.NotNil(t, controller)
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	updatedKitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     100.50,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "2",
+			Name: "Em preparação",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-001",
+				OrderID:   "order-001",
+				ProductID: "prod-001",
+				Quantity:  2,
+				UnitPrice: 50.25,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("Update", mock.Anything).Return(nil)
+	mockDataSource.On("FindByID", kitchenOrderID).Return(updatedKitchenOrder, nil)
+	mockStatusDataSource.On("FindByID", "2").Return(daos.OrderStatusDAO{ID: "2", Name: "Em preparação"}, nil)
+	mockMessageBroker.On("Publish", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.PUT("/kitchen-orders/:id", handler.Update)
+
+	requestBody := map[string]interface{}{
+		"status_id": "2",
+	}
+
+	jsonBody, _ := json.Marshal(requestBody)
+	req, _ := http.NewRequest("PUT", "/kitchen-orders/"+kitchenOrderID, bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, kitchenOrderID, response["id"])
+	assert.Equal(t, "Em preparação", response["status"])
+
+	items := response["items"].([]interface{})
+	assert.Len(t, items, 1)
+	item := items[0].(map[string]interface{})
+	assert.Equal(t, "item-001", item["id"])
+	assert.Equal(t, "prod-001", item["product_id"])
+	assert.Equal(t, float64(2), item["quantity"])
+	assert.Equal(t, 50.25, item["unit_price"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+
+func TestFindAll_DataSourceError(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	mockDataSource.On("FindAll", mock.Anything).Return(nil, assert.AnError)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindByID_DataSourceError(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	mockDataSource.On("FindByID", kitchenOrderID).Return(daos.KitchenOrderDAO{}, assert.AnError)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestUpdate_DataSourceError(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	mockDataSource.On("FindByID", mock.Anything).Return(daos.KitchenOrderDAO{}, assert.AnError)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.PUT("/kitchen-orders/:id", handler.Update)
+
+	requestBody := map[string]interface{}{
+		"status_id": "2",
+	}
+
+	jsonBody, _ := json.Marshal(requestBody)
+	req, _ := http.NewRequest("PUT", "/kitchen-orders/"+kitchenOrderID, bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindAll_NilItems(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrders := []daos.KitchenOrderDAO{
+		{
+			ID:         "550e8400-e29b-41d4-a716-446655440000",
+			OrderID:    "order-001",
+			CustomerID: nil,
+			Amount:     100.50,
+			Slug:       "001",
+			Status: daos.OrderStatusDAO{
+				ID:   "1",
+				Name: "Recebido",
+			},
+			Items:     nil,
+			CreatedAt: now,
+			UpdatedAt: &now,
+		},
+	}
+
+	mockDataSource.On("FindAll", mock.Anything).Return(kitchenOrders, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Len(t, response, 1)
+
+	items := response[0]["items"].([]interface{})
+	assert.Len(t, items, 0)
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindByID_ItemsWithDifferentPrices(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     200.00,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "1",
+			Name: "Recebido",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-001",
+				OrderID:   "order-001",
+				ProductID: "prod-001",
+				Quantity:  1,
+				UnitPrice: 99.99,
+			},
+			{
+				ID:        "item-002",
+				OrderID:   "order-001",
+				ProductID: "prod-002",
+				Quantity:  2,
+				UnitPrice: 50.00,
+			},
+			{
+				ID:        "item-003",
+				OrderID:   "order-001",
+				ProductID: "prod-003",
+				Quantity:  1,
+				UnitPrice: 0.01,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("FindByID", kitchenOrderID).Return(kitchenOrder, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	items := response["items"].([]interface{})
+	assert.Len(t, items, 3)
+
+	item1 := items[0].(map[string]interface{})
+	assert.Equal(t, 99.99, item1["unit_price"])
+
+	item2 := items[1].(map[string]interface{})
+	assert.Equal(t, 50.00, item2["unit_price"])
+
+	item3 := items[2].(map[string]interface{})
+	assert.Equal(t, 0.01, item3["unit_price"])
+
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestFindByID_ItemsWithDifferentQuantities(t *testing.T) {
+	setupTestEnv()
+	defer cleanupTestEnv()
+
+	router := setupTestRouter()
+	mockDataSource := new(MockKitchenOrderDataSource)
+	mockStatusDataSource := new(MockOrderStatusDataSource)
+	mockMessageBroker := new(MockMessageBroker)
+
+	now := time.Now()
+	kitchenOrderID := "550e8400-e29b-41d4-a716-446655440000"
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:         kitchenOrderID,
+		OrderID:    "order-001",
+		CustomerID: nil,
+		Amount:     500.00,
+		Slug:       "001",
+		Status: daos.OrderStatusDAO{
+			ID:   "1",
+			Name: "Recebido",
+		},
+		Items: []daos.OrderItemDAO{
+			{
+				ID:        "item-001",
+				OrderID:   "order-001",
+				ProductID: "prod-001",
+				Quantity:  1,
+				UnitPrice: 100.00,
+			},
+			{
+				ID:        "item-002",
+				OrderID:   "order-001",
+				ProductID: "prod-002",
+				Quantity:  10,
+				UnitPrice: 25.00,
+			},
+			{
+				ID:        "item-003",
+				OrderID:   "order-001",
+				ProductID: "prod-003",
+				Quantity:  100,
+				UnitPrice: 1.50,
+			},
+		},
+		CreatedAt: now,
+		UpdatedAt: &now,
+	}
+
+	mockDataSource.On("FindByID", kitchenOrderID).Return(kitchenOrder, nil)
+
+	handler := &KitchenOrderHandler{
+		kitchenOrderController: *controllers.NewKitchenOrderController(
+			mockDataSource,
+			mockStatusDataSource,
+			mockMessageBroker,
+		),
+	}
+
+	router.GET("/kitchen-orders/:id", handler.FindByID)
+
+	req, _ := http.NewRequest("GET", "/kitchen-orders/"+kitchenOrderID, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	items := response["items"].([]interface{})
+	assert.Len(t, items, 3)
+
+	item1 := items[0].(map[string]interface{})
+	assert.Equal(t, float64(1), item1["quantity"])
+
+	item2 := items[1].(map[string]interface{})
+	assert.Equal(t, float64(10), item2["quantity"])
+
+	item3 := items[2].(map[string]interface{})
+	assert.Equal(t, float64(100), item3["quantity"])
+
+	mockDataSource.AssertExpectations(t)
 }
