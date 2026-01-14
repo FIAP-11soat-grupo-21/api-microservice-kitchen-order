@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"tech_challenge/internal"
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/daos"
 	"tech_challenge/internal/shared/config/constants"
+	"tech_challenge/internal/shared/interfaces"
 )
 
 // Mock implementations
@@ -67,6 +70,33 @@ func (m *MockOrderStatusDataSource) FindByID(id string) (daos.OrderStatusDAO, er
 	return daos.OrderStatusDAO{}, nil
 }
 
+// Mock MessageBroker
+type MockMessageBroker struct{}
+
+func (m *MockMessageBroker) Connect(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Close() error {
+	return nil
+}
+
+func (m *MockMessageBroker) Publish(ctx context.Context, queue string, message interfaces.Message) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Subscribe(ctx context.Context, queue string, handler interfaces.MessageHandler) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockMessageBroker) Stop() error {
+	return nil
+}
+
 // Test helpers
 func createTestController() (*KitchenOrderController, *MockKitchenOrderDataSource, *MockOrderStatusDataSource) {
 	mockKitchenOrderDS := &MockKitchenOrderDataSource{kitchenOrders: []daos.KitchenOrderDAO{}}
@@ -76,7 +106,8 @@ func createTestController() (*KitchenOrderController, *MockKitchenOrderDataSourc
 			{ID: constants.KITCHEN_ORDER_STATUS_PREPARING_ID, Name: "Em preparação"},
 		},
 	}
-	controller := NewKitchenOrderController(mockKitchenOrderDS, mockOrderStatusDS)
+	mockMessageBroker := &MockMessageBroker{}
+	controller := NewKitchenOrderController(mockKitchenOrderDS, mockOrderStatusDS, mockMessageBroker)
 	return controller, mockKitchenOrderDS, mockOrderStatusDS
 }
 
@@ -173,6 +204,9 @@ func TestKitchenOrderController_FindByID(t *testing.T) {
 }
 
 func TestKitchenOrderController_Update(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+	
 	controller, mockKitchenOrderDS, _ := createTestController()
 	
 	testOrder := createTestKitchenOrder("550e8400-e29b-41d4-a716-446655440000")

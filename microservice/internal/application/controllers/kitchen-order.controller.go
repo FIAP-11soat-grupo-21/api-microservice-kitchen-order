@@ -5,6 +5,7 @@ import (
 	"tech_challenge/internal/application/gateways"
 	presenter "tech_challenge/internal/application/presenters"
 	"tech_challenge/internal/interfaces"
+	shared_interfaces "tech_challenge/internal/shared/interfaces"
 	"tech_challenge/internal/use_cases"
 )
 
@@ -13,14 +14,20 @@ type KitchenOrderController struct {
 	orderStatusDataSource  interfaces.IOrderStatusDataSource
 	kitchenOrderGateway    gateways.KitchenOrderGateway
 	orderStatusGateway     gateways.OrderStatusGateway
+	messageBroker          shared_interfaces.MessageBroker
 }
 
-func NewKitchenOrderController(kitchenOrderDataSource interfaces.IKitchenOrderDataSource, orderStatusDataSource interfaces.IOrderStatusDataSource) *KitchenOrderController {
+func NewKitchenOrderController(
+	kitchenOrderDataSource interfaces.IKitchenOrderDataSource, 
+	orderStatusDataSource interfaces.IOrderStatusDataSource,
+	messageBroker shared_interfaces.MessageBroker,
+) *KitchenOrderController {
 	return &KitchenOrderController{
 		kitchenOrderDataSource: kitchenOrderDataSource,
 		orderStatusDataSource:  orderStatusDataSource,
 		kitchenOrderGateway:    *gateways.NewKitchenOrderGateway(kitchenOrderDataSource),
 		orderStatusGateway:     *gateways.NewOrderStatusGateway(orderStatusDataSource),
+		messageBroker:          messageBroker,
 	}
 }
 
@@ -66,7 +73,7 @@ func (c *KitchenOrderController) FindByID(id string) (dtos.KitchenOrderResponseD
 }
 
 func (c *KitchenOrderController) Update(kitchenOrderDTO dtos.UpdateKitchenOrderDTO) (dtos.KitchenOrderResponseDTO, error) {
-	kitchenOrderUseCase := use_cases.NewUpdateKitchenOrderUseCase(c.kitchenOrderGateway, c.orderStatusGateway)
+	kitchenOrderUseCase := use_cases.NewUpdateKitchenOrderUseCase(c.kitchenOrderGateway, c.orderStatusGateway, c.messageBroker)
 
 	kitchenOrder, err := kitchenOrderUseCase.Execute(kitchenOrderDTO)
 

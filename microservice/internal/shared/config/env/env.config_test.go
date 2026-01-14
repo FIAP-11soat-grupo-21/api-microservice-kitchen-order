@@ -80,7 +80,7 @@ func TestConfig_MessageBroker(t *testing.T) {
 			name:       "SQS",
 			brokerType: "sqs",
 			envVars: map[string]string{
-				"SQS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
+				"AWS_SQS_KITCHEN_ORDERS_QUEUE": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
 			},
 			validate: func(t *testing.T, config *Config) {
 				if config.MessageBroker.Type != "sqs" {
@@ -156,6 +156,8 @@ func setupTestEnv() {
 		"AWS_REGION":          "us-east-1",
 		"MESSAGE_BROKER_TYPE": "rabbitmq",
 		"RABBITMQ_URL":        "amqp://localhost:5672",
+		"AWS_SQS_KITCHEN_ORDERS_QUEUE": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
+		"AWS_SQS_ORDERS_QUEUE": "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue",
 	}
 	
 	for key, value := range defaultEnvVars {
@@ -168,7 +170,7 @@ func cleanupTestEnv() {
 		"GO_ENV", "API_PORT", "API_HOST", "DB_RUN_MIGRATIONS",
 		"DB_HOST", "DB_NAME", "DB_PORT", "DB_USERNAME", "DB_PASSWORD",
 		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
-		"RABBITMQ_KITCHEN_QUEUE", "SQS_QUEUE_URL",
+		"RABBITMQ_KITCHEN_QUEUE", "RABBITMQ_ORDERS_QUEUE", "AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
 	}
 	
 	for _, envVar := range envVars {

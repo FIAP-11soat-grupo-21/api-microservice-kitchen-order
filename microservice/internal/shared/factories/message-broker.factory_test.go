@@ -53,6 +53,8 @@ func setTestEnvVars() {
 	os.Setenv("AWS_REGION", "us-east-1")
 	os.Setenv("MESSAGE_BROKER_TYPE", "rabbitmq")
 	os.Setenv("RABBITMQ_URL", "amqp://localhost:5672")
+	os.Setenv("AWS_SQS_KITCHEN_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/test-queue")
+	os.Setenv("AWS_SQS_ORDERS_QUEUE", "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue")
 }
 
 func cleanupTestEnvVars() {
@@ -60,7 +62,7 @@ func cleanupTestEnvVars() {
 		"GO_ENV", "API_PORT", "API_HOST", "DB_RUN_MIGRATIONS",
 		"DB_HOST", "DB_NAME", "DB_PORT", "DB_USERNAME", "DB_PASSWORD",
 		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
-		"RABBITMQ_KITCHEN_QUEUE", "SQS_QUEUE_URL",
+		"RABBITMQ_KITCHEN_QUEUE", "AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
 	}
 	
 	for _, envVar := range envVars {

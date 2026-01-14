@@ -1,6 +1,7 @@
 package gateways
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"tech_challenge/internal/shared/config/constants"
 )
 
-// Mock DataSource para testes
 type MockKitchenOrderDataSource struct {
 	insertFunc   func(daos.KitchenOrderDAO) error
 	findByIDFunc func(string) (daos.KitchenOrderDAO, error)
@@ -47,157 +47,282 @@ func (m *MockKitchenOrderDataSource) Update(order daos.KitchenOrderDAO) error {
 	return nil
 }
 
-func TestNewKitchenOrderGateway(t *testing.T) {
-	// Arrange
-	mockDataSource := &MockKitchenOrderDataSource{}
-
-	// Act
-	gateway := NewKitchenOrderGateway(mockDataSource)
-
-	// Assert
-	if gateway == nil {
-		t.Error("Expected gateway to be created, got nil")
+func makeOrderItemDAO(orderID string) daos.OrderItemDAO {
+	return daos.OrderItemDAO{
+		ID:        "item-1",
+		OrderID:   orderID,
+		ProductID: "product-1",
+		Quantity:  2,
+		UnitPrice: 10.0,
 	}
 }
 
-func TestKitchenOrderGateway_Insert(t *testing.T) {
-	// Arrange
-	mockDataSource := &MockKitchenOrderDataSource{
+func strPtr(s string) *string {
+	return &s
+}
+
+func TestNewKitchenOrderGateway(t *testing.T) {
+	gateway := NewKitchenOrderGateway(&MockKitchenOrderDataSource{})
+	if gateway == nil {
+		t.Fatal("expected gateway to be created")
+	}
+}
+
+func TestKitchenOrderGateway_Insert_Success(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
 		insertFunc: func(order daos.KitchenOrderDAO) error {
-			if order.ID == "test-id" {
-				return nil
-			}
+			return nil
+		},
+	}
+
+	gateway := NewKitchenOrderGateway(mock)
+
+	status, _ := entities.NewOrderStatus(
+		constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+		"Recebido",
+	)
+
+	item, _ := entities.NewOrderItem("item-1", "order-1", "product-1", 1, 10)
+
+	order, _ := entities.NewKitchenOrderWithOrderData(
+		"id-1",
+		"order-1",
+		"001",
+		strPtr("customer-1"),
+		10,
+		[]entities.OrderItem{*item},
+		*status,
+		time.Now(),
+		nil,
+	)
+
+	err := gateway.Insert(*order)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestKitchenOrderGateway_Insert_Error(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
+		insertFunc: func(order daos.KitchenOrderDAO) error {
 			return &exceptions.InvalidKitchenOrderDataException{}
 		},
 	}
 
-	gateway := NewKitchenOrderGateway(mockDataSource)
-	status, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido")
-	order, _ := entities.NewKitchenOrder("test-id", "order-123", "001", *status, time.Now(), nil)
+	gateway := NewKitchenOrderGateway(mock)
 
-	// Act
+	status, _ := entities.NewOrderStatus(
+		constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+		"Recebido",
+	)
+
+	order, _ := entities.NewKitchenOrder(
+		"id-1",
+		"order-1",
+		"001",
+		*status,
+		time.Now(),
+		nil,
+	)
+
 	err := gateway.Insert(*order)
-
-	// Assert
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
-func TestKitchenOrderGateway_FindByID(t *testing.T) {
-	// Arrange
-	expectedDAO := daos.KitchenOrderDAO{
-		ID:      "test-id",
-		OrderID: "order-123",
-		Slug:    "001",
-		Status: daos.OrderStatusDAO{
-			ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
-			Name: "Recebido",
+func TestKitchenOrderGateway_FindByID_Success(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
+		findByIDFunc: func(id string) (daos.KitchenOrderDAO, error) {
+			return daos.KitchenOrderDAO{
+				ID:      "id-1",
+				OrderID: "order-1",
+				Slug:    "001",
+				CustomerID: strPtr("customer-1"),
+				Status: daos.OrderStatusDAO{
+					ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+					Name: "Recebido",
+				},
+				Items: []daos.OrderItemDAO{
+					makeOrderItemDAO("order-1"),
+				},
+				CreatedAt: time.Now(),
+			}, nil
 		},
-		CreatedAt: time.Now(),
-		UpdatedAt: nil,
 	}
 
-	mockDataSource := &MockKitchenOrderDataSource{
+	gateway := NewKitchenOrderGateway(mock)
+
+	order, err := gateway.FindByID("id-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if order.ID != "id-1" {
+		t.Errorf("unexpected id: %s", order.ID)
+	}
+}
+
+func TestKitchenOrderGateway_FindByID_NotFound(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
 		findByIDFunc: func(id string) (daos.KitchenOrderDAO, error) {
-			if id == "test-id" {
-				return expectedDAO, nil
-			}
 			return daos.KitchenOrderDAO{}, &exceptions.KitchenOrderNotFoundException{}
 		},
 	}
 
-	gateway := NewKitchenOrderGateway(mockDataSource)
+	gateway := NewKitchenOrderGateway(mock)
 
-	// Act
-	result, err := gateway.FindByID("test-id")
-
-	// Assert
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-
-	if result.ID != "test-id" {
-		t.Errorf("Expected ID 'test-id', got %s", result.ID)
-	}
-
-	if result.OrderID != "order-123" {
-		t.Errorf("Expected OrderID 'order-123', got %s", result.OrderID)
+	_, err := gateway.FindByID("x")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
-func TestKitchenOrderGateway_FindAll(t *testing.T) {
-	// Arrange
-	expectedDAOs := []daos.KitchenOrderDAO{
-		{
-			ID:      "test-id-1",
-			OrderID: "order-123",
-			Slug:    "001",
-			Status: daos.OrderStatusDAO{
-				ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
-				Name: "Recebido",
-			},
-			CreatedAt: time.Now(),
-		},
-		{
-			ID:      "test-id-2",
-			OrderID: "order-456",
-			Slug:    "002",
-			Status: daos.OrderStatusDAO{
-				ID:   constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
-				Name: "Em preparação",
-			},
-			CreatedAt: time.Now(),
+func TestKitchenOrderGateway_FindByID_InvalidItem(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
+		findByIDFunc: func(id string) (daos.KitchenOrderDAO, error) {
+			return daos.KitchenOrderDAO{
+				ID:      "id-1",
+				OrderID: "order-1",
+				Slug:    "001",
+				Status: daos.OrderStatusDAO{
+					ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+					Name: "Recebido",
+				},
+				Items: []daos.OrderItemDAO{
+					{
+						ID:        "",
+						OrderID:   "",
+						ProductID: "",
+						Quantity:  -1,
+						UnitPrice: -10,
+					},
+				},
+				CreatedAt: time.Now(),
+			}, nil
 		},
 	}
 
-	mockDataSource := &MockKitchenOrderDataSource{
+	gateway := NewKitchenOrderGateway(mock)
+
+	_, err := gateway.FindByID("id-1")
+	if err == nil {
+		t.Fatal("expected domain error, got nil")
+	}
+}
+
+func TestKitchenOrderGateway_FindAll_Success(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
 		findAllFunc: func(filter dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error) {
-			return expectedDAOs, nil
+			return []daos.KitchenOrderDAO{
+				{
+					ID:      "id-1",
+					OrderID: "order-1",
+					Slug:    "001",
+					Status: daos.OrderStatusDAO{
+						ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+						Name: "Recebido",
+					},
+					Items: []daos.OrderItemDAO{
+						makeOrderItemDAO("order-1"),
+					},
+					CreatedAt: time.Now(),
+				},
+			}, nil
 		},
 	}
 
-	gateway := NewKitchenOrderGateway(mockDataSource)
-	filter := dtos.KitchenOrderFilter{}
+	gateway := NewKitchenOrderGateway(mock)
 
-	// Act
-	result, err := gateway.FindAll(filter)
-
-	// Assert
+	orders, err := gateway.FindAll(dtos.KitchenOrderFilter{})
 	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("Expected 2 orders, got %d", len(result))
-	}
-
-	if result[0].ID != "test-id-1" {
-		t.Errorf("Expected first order ID 'test-id-1', got %s", result[0].ID)
+	if len(orders) != 1 {
+		t.Fatalf("expected 1 order")
 	}
 }
 
-func TestKitchenOrderGateway_Update(t *testing.T) {
-	// Arrange
-	mockDataSource := &MockKitchenOrderDataSource{
+func TestKitchenOrderGateway_FindAll_Error(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
+		findAllFunc: func(filter dtos.KitchenOrderFilter) ([]daos.KitchenOrderDAO, error) {
+			return nil, errors.New("db error")
+		},
+	}
+
+	gateway := NewKitchenOrderGateway(mock)
+
+	_, err := gateway.FindAll(dtos.KitchenOrderFilter{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestKitchenOrderGateway_Update_Success(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
 		updateFunc: func(order daos.KitchenOrderDAO) error {
-			if order.ID == "test-id" {
-				return nil
-			}
+			return nil
+		},
+	}
+
+	gateway := NewKitchenOrderGateway(mock)
+
+	status, _ := entities.NewOrderStatus(
+		constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
+		"Em preparação",
+	)
+
+	now := time.Now()
+
+	order, _ := entities.NewKitchenOrderWithOrderData(
+		"id-1",
+		"order-1",
+		"001",
+		strPtr("customer-1"),
+		10,
+		[]entities.OrderItem{},
+		*status,
+		now,
+		&now,
+	)
+
+	err := gateway.Update(*order)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestKitchenOrderGateway_Update_NotFound(t *testing.T) {
+	mock := &MockKitchenOrderDataSource{
+		updateFunc: func(order daos.KitchenOrderDAO) error {
 			return &exceptions.KitchenOrderNotFoundException{}
 		},
 	}
 
-	gateway := NewKitchenOrderGateway(mockDataSource)
-	status, _ := entities.NewOrderStatus(constants.KITCHEN_ORDER_STATUS_PREPARING_ID, "Em preparação")
+	gateway := NewKitchenOrderGateway(mock)
+
+	status, _ := entities.NewOrderStatus(
+		constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
+		"Em preparação",
+	)
+
 	now := time.Now()
-	order, _ := entities.NewKitchenOrder("test-id", "order-123", "001", *status, time.Now(), &now)
 
-	// Act
+	order, _ := entities.NewKitchenOrderWithOrderData(
+		"id-1",
+		"order-1",
+		"001",
+		strPtr("customer-1"),
+		10,
+		[]entities.OrderItem{},
+		*status,
+		now,
+		&now,
+	)
+
 	err := gateway.Update(*order)
-
-	// Assert
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
