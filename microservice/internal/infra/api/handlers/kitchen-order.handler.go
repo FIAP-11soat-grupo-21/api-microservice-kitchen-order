@@ -38,6 +38,34 @@ func NewKitchenOrderHandler() *KitchenOrderHandler {
 	}
 }
 
+func (h *KitchenOrderHandler) toItemResponseSchema(items []dtos.OrderItemDTO) []schemas.OrderItemResponseSchema {
+	responses := make([]schemas.OrderItemResponseSchema, len(items))
+	for i, item := range items {
+		responses[i] = schemas.OrderItemResponseSchema{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+		}
+	}
+	return responses
+}
+
+func (h *KitchenOrderHandler) toKitchenOrderResponseSchema(kitchenOrder dtos.KitchenOrderResponseDTO) schemas.KitchenOrderResponseSchema {
+	return schemas.KitchenOrderResponseSchema{
+		ID:         kitchenOrder.ID,
+		OrderID:    kitchenOrder.OrderID,
+		CustomerID: kitchenOrder.CustomerID,
+		Amount:     kitchenOrder.Amount,
+		Status:     kitchenOrder.Status.Name,
+		Slug:       kitchenOrder.Slug,
+		Items:      h.toItemResponseSchema(kitchenOrder.Items),
+		CreatedAt:  kitchenOrder.CreatedAt,
+		UpdatedAt:  kitchenOrder.UpdatedAt,
+	}
+}
+
 // @Summary List all kitchenOrders
 // @Tags KitchenOrders
 // @Produce json
@@ -76,30 +104,8 @@ func (h *KitchenOrderHandler) FindAll(ctx *gin.Context) {
 	}
 
 	kitchenOrderResponses := make([]schemas.KitchenOrderResponseSchema, len(kitchenOrders))
-
 	for i, kitchenOrder := range kitchenOrders {
-		items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
-		for j, item := range kitchenOrder.Items {
-			items[j] = schemas.OrderItemResponseSchema{
-				ID:        item.ID,
-				OrderID:   item.OrderID,
-				ProductID: item.ProductID,
-				Quantity:  item.Quantity,
-				UnitPrice: item.UnitPrice,
-			}
-		}
-
-		kitchenOrderResponses[i] = schemas.KitchenOrderResponseSchema{
-			ID:         kitchenOrder.ID,
-			OrderID:    kitchenOrder.OrderID,
-			CustomerID: kitchenOrder.CustomerID,
-			Amount:     kitchenOrder.Amount,
-			Status:     kitchenOrder.Status.Name,
-			Slug:       kitchenOrder.Slug,
-			Items:      items,
-			CreatedAt:  kitchenOrder.CreatedAt,
-			UpdatedAt:  kitchenOrder.UpdatedAt,
-		}
+		kitchenOrderResponses[i] = h.toKitchenOrderResponseSchema(kitchenOrder)
 	}
 
 	ctx.JSON(http.StatusOK, kitchenOrderResponses)
@@ -125,30 +131,7 @@ func (h *KitchenOrderHandler) FindByID(ctx *gin.Context) {
 		return
 	}
 
-	items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
-	for i, item := range kitchenOrder.Items {
-		items[i] = schemas.OrderItemResponseSchema{
-			ID:        item.ID,
-			OrderID:   item.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-		}
-	}
-
-	kitchenOrderResponse := schemas.KitchenOrderResponseSchema{
-		ID:         kitchenOrder.ID,
-		OrderID:    kitchenOrder.OrderID,
-		CustomerID: kitchenOrder.CustomerID,
-		Amount:     kitchenOrder.Amount,
-		Status:     kitchenOrder.Status.Name,
-		Slug:       kitchenOrder.Slug,
-		Items:      items,
-		CreatedAt:  kitchenOrder.CreatedAt,
-		UpdatedAt:  kitchenOrder.UpdatedAt,
-	}
-
-	ctx.JSON(http.StatusOK, kitchenOrderResponse)
+	ctx.JSON(http.StatusOK, h.toKitchenOrderResponseSchema(kitchenOrder))
 }
 
 // @Summary Update a kitchenOrder status
@@ -184,28 +167,5 @@ func (h *KitchenOrderHandler) Update(ctx *gin.Context) {
 		return
 	}
 
-	items := make([]schemas.OrderItemResponseSchema, len(kitchenOrder.Items))
-	for i, item := range kitchenOrder.Items {
-		items[i] = schemas.OrderItemResponseSchema{
-			ID:        item.ID,
-			OrderID:   item.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-		}
-	}
-
-	kitchenOrderResponse := schemas.KitchenOrderResponseSchema{
-		ID:         kitchenOrder.ID,
-		OrderID:    kitchenOrder.OrderID,
-		CustomerID: kitchenOrder.CustomerID,
-		Amount:     kitchenOrder.Amount,
-		Status:     kitchenOrder.Status.Name,
-		Slug:       kitchenOrder.Slug,
-		Items:      items,
-		CreatedAt:  kitchenOrder.CreatedAt,
-		UpdatedAt:  kitchenOrder.UpdatedAt,
-	}
-
-	ctx.JSON(http.StatusOK, kitchenOrderResponse)
+	ctx.JSON(http.StatusOK, h.toKitchenOrderResponseSchema(kitchenOrder))
 }
