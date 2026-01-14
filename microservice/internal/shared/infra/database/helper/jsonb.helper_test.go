@@ -7,14 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func verifyJSONBValue(t *testing.T, value interface{}, expectedData interface{}) {
-	assert.NotNil(t, value)
-	var result interface{}
-	err := json.Unmarshal(value.([]byte), &result)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedData, result)
-}
-
 func TestJSONB_Value_Success(t *testing.T) {
 	data := map[string]interface{}{"name": "test", "age": 30}
 	jsonb := JSONB{Data: data}
