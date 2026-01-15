@@ -14,7 +14,46 @@ permissions:
   contents: read
 
 jobs:
+  SonarScan:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    env:
+      SONAR_PROJECT_KEY: "FIAP-11soat-grupo-21_api-microservice-kitchen-order"
+      SONAR_ORGANIZATION: "fiap-11soat-grupo-21"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Clean workspace
+        run: |
+          rm -rf .scannerwork || true
+          go clean -testcache
+
+      - name: Run tests with coverage
+        run: |
+          go test ./... -coverprofile=coverage.out
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.verbose=true
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.coverage.exclusions="**/*_test.go,**/*mock*.go,**/mocks/**,**/bdd/**"
   build:
+    needs: [SonarScan]
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     outputs:

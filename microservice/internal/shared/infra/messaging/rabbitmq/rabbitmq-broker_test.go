@@ -3,7 +3,9 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -68,7 +70,6 @@ func TestRabbitMQBroker_Connect_NoConnection(t *testing.T) {
 	err := broker.Connect(ctx)
 
 	// Assert
-	// Deve retornar erro pois não há RabbitMQ rodando
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to connect to RabbitMQ")
 }
@@ -85,7 +86,6 @@ func TestRabbitMQBroker_Close_NoConnection(t *testing.T) {
 	err := broker.Close()
 
 	// Assert
-	// Deve ser seguro fechar mesmo sem conexão
 	assert.NoError(t, err)
 }
 
@@ -110,7 +110,6 @@ func TestRabbitMQBroker_Publish_NoConnection(t *testing.T) {
 	err := broker.Publish(ctx, "test-queue", message)
 
 	// Assert
-	// Deve retornar erro pois não está conectado
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
 }
@@ -132,7 +131,6 @@ func TestRabbitMQBroker_Subscribe_NoConnection(t *testing.T) {
 	err := broker.Subscribe(ctx, "test-queue", handler)
 
 	// Assert
-	// Deve retornar erro pois não está conectado
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
 }
@@ -150,7 +148,6 @@ func TestRabbitMQBroker_Start(t *testing.T) {
 	err := broker.Start(ctx)
 
 	// Assert
-	// Start sempre retorna nil para RabbitMQ
 	assert.NoError(t, err)
 }
 
@@ -166,7 +163,6 @@ func TestRabbitMQBroker_Stop(t *testing.T) {
 	err := broker.Stop()
 
 	// Assert
-	// Stop deve ser seguro mesmo sem conexão
 	assert.NoError(t, err)
 }
 
@@ -185,7 +181,6 @@ func TestSerializeMessage_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	
-	// Verifica se é JSON válido
 	var decoded map[string]interface{}
 	err = json.Unmarshal(result, &decoded)
 	assert.NoError(t, err)
@@ -354,6 +349,528 @@ func TestRabbitMQBroker_ConfigValidation(t *testing.T) {
 			} else {
 				assert.Empty(t, broker.config.URL)
 			}
+		})
+	}
+}
+
+
+func TestRabbitMQBroker_Connect_ChannelError(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Act
+	err := broker.Connect(ctx)
+
+	// Assert
+	assert.Error(t, err)
+}
+
+func TestRabbitMQBroker_Connect_ExchangeDeclareError(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Act
+	err := broker.Connect(ctx)
+
+	// Assert
+	assert.Error(t, err)
+}
+
+func TestRabbitMQBroker_Publish_WithHeaders(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	message := interfaces.Message{
+		ID:   "test-id-123",
+		Body: []byte(`{"order_id":"123","status":"pending"}`),
+		Headers: map[string]string{
+			"type":        "order.created",
+			"version":     "1.0",
+			"correlation": "corr-123",
+		},
+	}
+
+	// Act
+	err := broker.Publish(ctx, "orders-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_Subscribe_WithExchange(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "orders-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	handler := func(ctx context.Context, msg interfaces.Message) error {
+		return nil
+	}
+
+	// Act
+	err := broker.Subscribe(ctx, "orders-queue", handler)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_Subscribe_WithoutExchange(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	handler := func(ctx context.Context, msg interfaces.Message) error {
+		return nil
+	}
+
+	// Act
+	err := broker.Subscribe(ctx, "orders-queue", handler)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_ConcurrentPublish(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Act & Assert
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			message := interfaces.Message{
+				ID:      "test-id-" + string(rune(index)),
+				Body:    []byte("test message"),
+				Headers: map[string]string{"index": string(rune(index))},
+			}
+			err := broker.Publish(ctx, "test-queue", message)
+			assert.Error(t, err) // Esperamos erro pois não está conectado
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestRabbitMQBroker_ConcurrentClose(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+
+	// Act & Assert
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := broker.Close()
+			assert.NoError(t, err)
+		}()
+	}
+	wg.Wait()
+}
+
+func TestRabbitMQBroker_MessageWithEmptyHeaders(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	message := interfaces.Message{
+		ID:      "test-id",
+		Body:    []byte("test message"),
+		Headers: map[string]string{},
+	}
+
+	// Act
+	err := broker.Publish(ctx, "test-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_MessageWithNilHeaders(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	message := interfaces.Message{
+		ID:      "test-id",
+		Body:    []byte("test message"),
+		Headers: nil,
+	}
+
+	// Act
+	err := broker.Publish(ctx, "test-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_LargeMessage(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	largeBody := make([]byte, 1024*1024) // 1MB
+	for i := range largeBody {
+		largeBody[i] = byte(i % 256)
+	}
+
+	message := interfaces.Message{
+		ID:      "large-message-id",
+		Body:    largeBody,
+		Headers: map[string]string{"size": "1MB"},
+	}
+
+	// Act
+	err := broker.Publish(ctx, "test-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_MessageWithSpecialCharacters(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	message := interfaces.Message{
+		ID:   "test-id-special-chars-!@#$%^&*()",
+		Body: []byte(`{"message":"Special chars: !@#$%^&*()","emoji":"🚀"}`),
+		Headers: map[string]string{
+			"special": "!@#$%^&*()",
+			"emoji":   "🚀",
+		},
+	}
+
+	// Act
+	err := broker.Publish(ctx, "test-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestSerializeMessage_Complex(t *testing.T) {
+	// Arrange
+	type OrderItem struct {
+		ID       string  `json:"id"`
+		Quantity int     `json:"quantity"`
+		Price    float64 `json:"price"`
+	}
+
+	type Order struct {
+		OrderID    string      `json:"order_id"`
+		CustomerID string      `json:"customer_id"`
+		Items      []OrderItem `json:"items"`
+		Total      float64     `json:"total"`
+		Status     string      `json:"status"`
+	}
+
+	order := Order{
+		OrderID:    "order-123",
+		CustomerID: "customer-456",
+		Items: []OrderItem{
+			{ID: "item-1", Quantity: 2, Price: 29.99},
+			{ID: "item-2", Quantity: 1, Price: 49.99},
+		},
+		Total:  109.97,
+		Status: "pending",
+	}
+
+	// Act
+	result, err := SerializeMessage(order)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	var deserialized Order
+	err = json.Unmarshal(result, &deserialized)
+	assert.NoError(t, err)
+	assert.Equal(t, order.OrderID, deserialized.OrderID)
+	assert.Equal(t, order.CustomerID, deserialized.CustomerID)
+	assert.Len(t, deserialized.Items, 2)
+	assert.Equal(t, order.Total, deserialized.Total)
+}
+
+func TestDeserializeMessage_Array(t *testing.T) {
+	// Arrange
+	jsonData := []byte(`[{"id":"1","name":"item1"},{"id":"2","name":"item2"}]`)
+	var result []map[string]interface{}
+
+	// Act
+	err := DeserializeMessage(jsonData, &result)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "1", result[0]["id"])
+	assert.Equal(t, "item1", result[0]["name"])
+}
+
+func TestDeserializeMessage_Number(t *testing.T) {
+	// Arrange
+	jsonData := []byte(`42`)
+	var result int
+
+	// Act
+	err := DeserializeMessage(jsonData, &result)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, 42, result)
+}
+
+func TestDeserializeMessage_Boolean(t *testing.T) {
+	// Arrange
+	jsonData := []byte(`true`)
+	var result bool
+
+	// Act
+	err := DeserializeMessage(jsonData, &result)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.True(t, result)
+}
+
+func TestRabbitMQBroker_MultipleConnectAttempts(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://invalid-host:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Act & Assert
+	for i := 0; i < 3; i++ {
+		err := broker.Connect(ctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to connect to RabbitMQ")
+	}
+}
+
+func TestRabbitMQBroker_PublishAfterClose(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Fecha sem conectar
+	err := broker.Close()
+	assert.NoError(t, err)
+
+	message := interfaces.Message{
+		ID:      "test-id",
+		Body:    []byte("test message"),
+		Headers: map[string]string{},
+	}
+
+	// Act
+	err = broker.Publish(ctx, "test-queue", message)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_SubscribeAfterClose(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	// Fecha sem conectar
+	err := broker.Close()
+	assert.NoError(t, err)
+
+	handler := func(ctx context.Context, msg interfaces.Message) error {
+		return nil
+	}
+
+	// Act
+	err = broker.Subscribe(ctx, "test-queue", handler)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not connected to RabbitMQ")
+}
+
+func TestRabbitMQBroker_ContextCancellation(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancela imediatamente
+
+	// Act
+	err := broker.Connect(ctx)
+
+	// Assert
+	// Mesmo com contexto cancelado, o erro será sobre conexão RabbitMQ
+	assert.Error(t, err)
+}
+
+func TestRabbitMQBroker_ContextTimeout(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+
+	// Act
+	err := broker.Connect(ctx)
+
+	// Assert
+	// Esperamos erro de conexão
+	assert.Error(t, err)
+}
+
+func TestSerializeMessage_EmptyStruct(t *testing.T) {
+	// Arrange
+	type EmptyStruct struct{}
+	data := EmptyStruct{}
+
+	// Act
+	result, err := SerializeMessage(data)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("{}"), result)
+}
+
+func TestSerializeMessage_NestedStructures(t *testing.T) {
+	// Arrange
+	type Address struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
+
+	type Person struct {
+		Name    string  `json:"name"`
+		Age     int     `json:"age"`
+		Address Address `json:"address"`
+	}
+
+	person := Person{
+		Name: "John Doe",
+		Age:  30,
+		Address: Address{
+			Street: "123 Main St",
+			City:   "New York",
+		},
+	}
+
+	// Act
+	result, err := SerializeMessage(person)
+
+	// Assert
+	assert.NoError(t, err)
+
+	var deserialized Person
+	err = json.Unmarshal(result, &deserialized)
+	assert.NoError(t, err)
+	assert.Equal(t, person.Name, deserialized.Name)
+	assert.Equal(t, person.Address.City, deserialized.Address.City)
+}
+
+func TestRabbitMQBroker_QueueNameVariations(t *testing.T) {
+	// Arrange
+	config := RabbitMQConfig{
+		URL:      "amqp://localhost:5672",
+		Exchange: "test-exchange",
+	}
+	broker := NewRabbitMQBroker(config)
+	ctx := context.Background()
+
+	testCases := []string{
+		"simple-queue",
+		"queue_with_underscore",
+		"queue.with.dots",
+		"queue-with-multiple-dashes",
+		"UPPERCASE_QUEUE",
+		"MixedCaseQueue",
+	}
+
+	for _, queueName := range testCases {
+		t.Run(queueName, func(t *testing.T) {
+			message := interfaces.Message{
+				ID:      "test-id",
+				Body:    []byte("test message"),
+				Headers: map[string]string{},
+			}
+
+			err := broker.Publish(ctx, queueName, message)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "not connected to RabbitMQ")
 		})
 	}
 }

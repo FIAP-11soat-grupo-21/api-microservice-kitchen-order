@@ -12,9 +12,25 @@ import (
 	"tech_challenge/internal/shared/interfaces"
 )
 
+// AMQPChannel interface para permitir mocks
+type AMQPChannel interface {
+	Close() error
+	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error
+	QueueDeclare(name string, durable, deleteWhenUnused, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
+	QueueBind(name, key, exchange string, noWait bool, args amqp.Table) error
+	Publish(exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
+	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+}
+
+// AMQPConnection interface para permitir mocks
+type AMQPConnection interface {
+	Channel() (*amqp.Channel, error)
+	Close() error
+}
+
 type RabbitMQBroker struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
+	conn    AMQPConnection
+	channel AMQPChannel
 	config  RabbitMQConfig
 	mu      sync.Mutex
 }
