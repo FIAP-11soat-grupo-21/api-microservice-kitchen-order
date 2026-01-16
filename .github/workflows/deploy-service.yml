@@ -38,6 +38,7 @@ jobs:
           go clean -testcache
 
       - name: Run tests with coverage
+        working-directory: microservice
         run: |
           go test ./... -coverprofile=coverage.out
 
@@ -46,6 +47,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
+          projectBaseDir: microservice
           args: >
             -Dsonar.verbose=true
             -Dsonar.go.coverage.reportPaths=coverage.out
