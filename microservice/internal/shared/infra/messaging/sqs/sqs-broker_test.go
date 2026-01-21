@@ -480,7 +480,7 @@ func TestSQSBroker_Mutex_Protection(t *testing.T) {
 	}()
 	
 	go func() {
-		broker.Publish(ctx, "queue", interfaces.Message{
+		_ = broker.Publish(ctx, "queue", interfaces.Message{
 			ID:   "msg-1",
 			Body: []byte("test"),
 		})
@@ -488,7 +488,7 @@ func TestSQSBroker_Mutex_Protection(t *testing.T) {
 	}()
 	
 	go func() {
-		broker.Subscribe(ctx, "queue", func(ctx context.Context, msg interfaces.Message) error {
+		_ = broker.Subscribe(ctx, "queue", func(ctx context.Context, msg interfaces.Message) error {
 			return nil
 		})
 		done <- true
