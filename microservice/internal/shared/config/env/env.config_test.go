@@ -52,30 +52,11 @@ func TestConfig_Environment(t *testing.T) {
 
 func TestConfig_MessageBroker(t *testing.T) {
 	tests := []struct {
-		name     string
+		name       string
 		brokerType string
-		envVars  map[string]string
-		validate func(*testing.T, *Config)
+		envVars    map[string]string
+		validate   func(*testing.T, *Config)
 	}{
-		{
-			name:       "RabbitMQ",
-			brokerType: "rabbitmq",
-			envVars: map[string]string{
-				"RABBITMQ_URL":           "amqp://localhost:5672",
-				"RABBITMQ_KITCHEN_QUEUE": "test-kitchen-queue",
-			},
-			validate: func(t *testing.T, config *Config) {
-				if config.MessageBroker.Type != "rabbitmq" {
-					t.Errorf("Expected MessageBroker.Type 'rabbitmq', got %s", config.MessageBroker.Type)
-				}
-				if config.MessageBroker.RabbitMQ.URL != "amqp://localhost:5672" {
-					t.Errorf("Expected RabbitMQ URL 'amqp://localhost:5672', got %s", config.MessageBroker.RabbitMQ.URL)
-				}
-				if config.MessageBroker.RabbitMQ.KitchenQueue != "test-kitchen-queue" {
-					t.Errorf("Expected KitchenQueue 'test-kitchen-queue', got %s", config.MessageBroker.RabbitMQ.KitchenQueue)
-				}
-			},
-		},
 		{
 			name:       "SQS",
 			brokerType: "sqs",
@@ -144,20 +125,19 @@ func TestConfig_Database(t *testing.T) {
 
 func setupTestEnv() {
 	defaultEnvVars := map[string]string{
-		"GO_ENV":              "test",
-		"API_PORT":            "8080",
-		"API_HOST":            "localhost",
-		"DB_RUN_MIGRATIONS":   "false",
-		"DB_HOST":             "localhost",
-		"DB_NAME":             "test",
-		"DB_PORT":             "5432",
-		"DB_USERNAME":         "test",
-		"DB_PASSWORD":         "test",
-		"AWS_REGION":          "us-east-1",
-		"MESSAGE_BROKER_TYPE": "rabbitmq",
-		"RABBITMQ_URL":        "amqp://localhost:5672",
-		"AWS_SQS_KITCHEN_ORDERS_QUEUE": "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
-		"AWS_SQS_ORDERS_QUEUE": "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue",
+		"GO_ENV":                        "test",
+		"API_PORT":                      "8080",
+		"API_HOST":                      "localhost",
+		"DB_RUN_MIGRATIONS":             "false",
+		"DB_HOST":                       "localhost",
+		"DB_NAME":                       "test",
+		"DB_PORT":                       "5432",
+		"DB_USERNAME":                   "test",
+		"DB_PASSWORD":                   "test",
+		"AWS_REGION":                    "us-east-1",
+		"MESSAGE_BROKER_TYPE":           "sqs",
+		"AWS_SQS_KITCHEN_ORDERS_QUEUE":  "https://sqs.us-east-1.amazonaws.com/123456789/test-queue",
+		"AWS_SQS_ORDERS_QUEUE":          "https://sqs.us-east-1.amazonaws.com/123456789/orders-queue",
 	}
 	
 	for key, value := range defaultEnvVars {
@@ -169,8 +149,8 @@ func cleanupTestEnv() {
 	envVars := []string{
 		"GO_ENV", "API_PORT", "API_HOST", "DB_RUN_MIGRATIONS",
 		"DB_HOST", "DB_NAME", "DB_PORT", "DB_USERNAME", "DB_PASSWORD",
-		"AWS_REGION", "MESSAGE_BROKER_TYPE", "RABBITMQ_URL",
-		"RABBITMQ_KITCHEN_QUEUE", "RABBITMQ_ORDERS_QUEUE", "AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
+		"AWS_REGION", "MESSAGE_BROKER_TYPE",
+		"AWS_SQS_KITCHEN_ORDERS_QUEUE", "AWS_SQS_ORDERS_QUEUE",
 	}
 	
 	for _, envVar := range envVars {

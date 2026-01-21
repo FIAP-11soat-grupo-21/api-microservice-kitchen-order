@@ -31,14 +31,8 @@ type Config struct {
 		Region string
 	}
 	MessageBroker struct {
-		Type     string
-		RabbitMQ struct {
-			URL          string
-			Exchange     string
-			KitchenQueue string
-			OrdersQueue  string
-		}
-		SQS struct {
+		Type string
+		SQS  struct {
 			QueueURL       string
 			OrdersQueueURL string
 		}
@@ -94,17 +88,7 @@ func (c *Config) Load() {
 	// Message Broker configuration
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
 
-	if c.MessageBroker.Type == "rabbitmq" {
-		c.MessageBroker.RabbitMQ.URL = getEnv("RABBITMQ_URL")
-		c.MessageBroker.RabbitMQ.KitchenQueue = os.Getenv("RABBITMQ_KITCHEN_QUEUE")
-		if c.MessageBroker.RabbitMQ.KitchenQueue == "" {
-			c.MessageBroker.RabbitMQ.KitchenQueue = "kitchen-order.create" // fallback
-		}
-		c.MessageBroker.RabbitMQ.OrdersQueue = os.Getenv("RABBITMQ_ORDERS_QUEUE")
-		if c.MessageBroker.RabbitMQ.OrdersQueue == "" {
-			c.MessageBroker.RabbitMQ.OrdersQueue = "orders.updates" // fallback
-		}
-	} else if c.MessageBroker.Type == "sqs" {
+	if c.MessageBroker.Type == "sqs" {
 		c.MessageBroker.SQS.QueueURL = getEnv("AWS_SQS_KITCHEN_ORDERS_QUEUE")
 		c.MessageBroker.SQS.OrdersQueueURL = os.Getenv("AWS_SQS_ORDERS_QUEUE")
 		if c.MessageBroker.SQS.OrdersQueueURL == "" {
