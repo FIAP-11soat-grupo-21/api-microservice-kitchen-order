@@ -1,104 +1,200 @@
 package handlers
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"tech_challenge/internal"
+	"tech_challenge/internal/application/controllers"
+	"tech_challenge/internal/daos"
 )
 
+type MockOrderStatusDataSourceForHandler struct {
+	mock.Mock
+}
+
+func (m *MockOrderStatusDataSourceForHandler) FindByID(id string) (daos.OrderStatusDAO, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return daos.OrderStatusDAO{}, args.Error(1)
+	}
+	return args.Get(0).(daos.OrderStatusDAO), args.Error(1)
+}
+
+func (m *MockOrderStatusDataSourceForHandler) FindAll() ([]daos.OrderStatusDAO, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]daos.OrderStatusDAO), args.Error(1)
+}
+
+func createOrderStatusHandler(mockDataSource *MockOrderStatusDataSourceForHandler) *OrderStatusHandler {
+	return &OrderStatusHandler{
+		controller: *controllers.NewOrderStatusController(mockDataSource),
+	}
+}
+
 func TestNewOrderStatusHandler(t *testing.T) {
-	handler := NewOrderStatusHandler()
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
 
-	if handler == nil {
-		t.Error("Expected handler to be created, got nil")
-	}
-
-	// Verifica se o controller foi inicializado
-	assert.NotNil(t, handler)
-}
-
-func TestOrderStatusHandler_Structure(t *testing.T) {
-	handler := NewOrderStatusHandler()
-	
-	// Verifica se a estrutura está correta
-	assert.NotNil(t, handler)
-	
-	// Verifica se tem os métodos necessários
-	assert.IsType(t, &OrderStatusHandler{}, handler)
-}
-
-func TestOrderStatusHandler_Initialization(t *testing.T) {
-	// Testa se múltiplas instâncias podem ser criadas
-	handler1 := NewOrderStatusHandler()
-	handler2 := NewOrderStatusHandler()
-	
-	assert.NotNil(t, handler1)
-	assert.NotNil(t, handler2)
-	
-	// Verifica se são instâncias diferentes
-	assert.NotSame(t, handler1, handler2)
-}
-
-func TestOrderStatusHandler_Methods_Exist(t *testing.T) {
-	handler := NewOrderStatusHandler()
-	
-	// Verifica se os métodos existem (não nil)
-	assert.NotNil(t, handler.FindAll)
-}
-
-func TestOrderStatusHandler_Controller_Initialized(t *testing.T) {
-	handler := NewOrderStatusHandler()
-	
-	// Verifica se o controller foi inicializado
-	// Como é um struct, verificamos se não é zero value
-	assert.NotNil(t, handler)
-	
-	// Testa se a estrutura do handler está correta
-	assert.IsType(t, &OrderStatusHandler{}, handler)
-}
-
-func TestOrderStatusHandler_Type_Assertions(t *testing.T) {
-	handler := NewOrderStatusHandler()
-	
-	// Verifica se é do tipo correto
-	assert.IsType(t, &OrderStatusHandler{}, handler)
-	
-	// Verifica se não é nil
-	assert.NotNil(t, handler)
-}
-
-func TestOrderStatusHandler_Multiple_Instances(t *testing.T) {
-	// Cria múltiplas instâncias
-	handlers := make([]*OrderStatusHandler, 5)
-	
-	for i := 0; i < 5; i++ {
-		handlers[i] = NewOrderStatusHandler()
-		assert.NotNil(t, handlers[i])
-	}
-	
-	// Verifica se todas são diferentes
-	for i := 0; i < 5; i++ {
-		for j := i + 1; j < 5; j++ {
-			assert.NotSame(t, handlers[i], handlers[j])
-		}
-	}
-}
-
-func TestOrderStatusHandler_Interface_Compliance(t *testing.T) {
-	handler := NewOrderStatusHandler()
-	
-	// Verifica se tem os métodos esperados
-	assert.NotNil(t, handler.FindAll)
-	
-	// Verifica se é do tipo correto
-	assert.IsType(t, &OrderStatusHandler{}, handler)
-}
-
-func TestOrderStatusHandler_Memory_Safety(t *testing.T) {
-	// Testa se não há vazamentos de memória óbvios
-	for i := 0; i < 100; i++ {
+	t.Run("should create handler successfully", func(t *testing.T) {
 		handler := NewOrderStatusHandler()
 		assert.NotNil(t, handler)
-		// Deixa o handler sair de escopo para ser coletado pelo GC
+		assert.NotNil(t, handler.controller)
+	})
+
+	t.Run("should create new instance on each call", func(t *testing.T) {
+		handler1 := NewOrderStatusHandler()
+		handler2 := NewOrderStatusHandler()
+		assert.NotNil(t, handler1)
+		assert.NotNil(t, handler2)
+		assert.NotSame(t, handler1, handler2)
+	})
+}
+
+func TestOrderStatusHandler_FindAll_Empty(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+
+	router := gin.Default()
+	gin.SetMode(gin.TestMode)
+
+	mockDataSource := new(MockOrderStatusDataSourceForHandler)
+	mockDataSource.On("FindAll").Return([]daos.OrderStatusDAO{}, nil)
+
+	handler := createOrderStatusHandler(mockDataSource)
+	router.GET("/v1/kitchen-orders/status", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/v1/kitchen-orders/status", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var response []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Len(t, response, 0)
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestOrderStatusHandler_FindAll_Response_Format(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+
+	router := gin.Default()
+	gin.SetMode(gin.TestMode)
+
+	mockDataSource := new(MockOrderStatusDataSourceForHandler)
+	statusData := []daos.OrderStatusDAO{
+		{ID: "1", Name: "Recebido"},
 	}
+	mockDataSource.On("FindAll").Return(statusData, nil)
+
+	handler := createOrderStatusHandler(mockDataSource)
+	router.GET("/v1/kitchen-orders/status", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/v1/kitchen-orders/status", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+
+	body := w.Body.String()
+	assert.True(t, body[0] == '[', "Response should be a JSON array")
+	assert.True(t, body[len(body)-1] == ']', "Response should end with ]")
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestOrderStatusHandler_FindAll_Consistent_Responses(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+
+	router := gin.Default()
+	gin.SetMode(gin.TestMode)
+
+	mockDataSource := new(MockOrderStatusDataSourceForHandler)
+	statusData := []daos.OrderStatusDAO{
+		{ID: "1", Name: "Status 1"},
+		{ID: "2", Name: "Status 2"},
+	}
+	mockDataSource.On("FindAll").Return(statusData, nil)
+
+	handler := createOrderStatusHandler(mockDataSource)
+	router.GET("/v1/kitchen-orders/status", handler.FindAll)
+
+	// Chama múltiplas vezes
+	responses := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		req, _ := http.NewRequest("GET", "/v1/kitchen-orders/status", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		responses[i] = w.Body.String()
+	}
+
+	// Todas as respostas devem ser iguais
+	assert.Equal(t, responses[0], responses[1])
+	assert.Equal(t, responses[1], responses[2])
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestOrderStatusHandler_FindAll_No_Error_Field_On_Success(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+
+	router := gin.Default()
+	gin.SetMode(gin.TestMode)
+
+	mockDataSource := new(MockOrderStatusDataSourceForHandler)
+	statusData := []daos.OrderStatusDAO{
+		{ID: "1", Name: "Status 1"},
+	}
+	mockDataSource.On("FindAll").Return(statusData, nil)
+
+	handler := createOrderStatusHandler(mockDataSource)
+	router.GET("/v1/kitchen-orders/status", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/v1/kitchen-orders/status", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	// Não deve conter campo "error" em sucesso
+	assert.NotContains(t, body, "\"error\"")
+	mockDataSource.AssertExpectations(t)
+}
+
+func TestOrderStatusHandler_FindAll_Error_Has_Error_Field(t *testing.T) {
+	internal.SetupTestEnv()
+	defer internal.CleanupTestEnv()
+
+	router := gin.Default()
+	gin.SetMode(gin.TestMode)
+
+	mockDataSource := new(MockOrderStatusDataSourceForHandler)
+	mockDataSource.On("FindAll").Return(nil, assert.AnError)
+
+	handler := createOrderStatusHandler(mockDataSource)
+	router.GET("/v1/kitchen-orders/status", handler.FindAll)
+
+	req, _ := http.NewRequest("GET", "/v1/kitchen-orders/status", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Contains(t, response, "error")
+	assert.NotEmpty(t, response["error"])
+	mockDataSource.AssertExpectations(t)
 }

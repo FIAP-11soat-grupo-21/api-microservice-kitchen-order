@@ -101,16 +101,7 @@ func (ko *UpdateKitchenOrderUseCase) notifyOrdersService(kitchenOrder entities.K
 	}
 
 	config := env.GetConfig()
-	var queueName string
-	
-	if config.MessageBroker.Type == "rabbitmq" {
-		queueName = config.MessageBroker.RabbitMQ.OrdersQueue
-	} else if config.MessageBroker.Type == "sqs" {
-		queueName = config.MessageBroker.SQS.OrdersQueueURL
-	} else {
-		log.Printf("Unsupported message broker type: %s", config.MessageBroker.Type)
-		return
-	}
+	queueName := config.MessageBroker.SQS.OrdersQueueURL
 
 	msg := interfaces.Message{
 		Body:    messageBody,

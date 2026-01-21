@@ -3,7 +3,6 @@ package consumers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"tech_challenge/internal/application/controllers"
@@ -51,21 +50,13 @@ type KitchenOrderResponse struct {
 
 func (c *KitchenOrderConsumer) Start(ctx context.Context) error {
 	config := env.GetConfig()
-	var queueName string
-	
-	if config.MessageBroker.Type == "rabbitmq" {
-		queueName = config.MessageBroker.RabbitMQ.KitchenQueue
-	} else if config.MessageBroker.Type == "sqs" {
-		queueName = config.MessageBroker.SQS.QueueURL
-	} else {
-		return fmt.Errorf("unsupported message broker type: %s", config.MessageBroker.Type)
-	}
+	queueName := config.MessageBroker.SQS.QueueURL
 	
 	if err := c.broker.Subscribe(ctx, queueName, c.handleCreate); err != nil {
 		return err
 	}
 
-	log.Printf("Kitchen order consumer started listening on %s queue: %s", config.MessageBroker.Type, queueName)
+	log.Printf("Kitchen order consumer started listening on SQS queue: %s", queueName)
 	return nil
 }
 
