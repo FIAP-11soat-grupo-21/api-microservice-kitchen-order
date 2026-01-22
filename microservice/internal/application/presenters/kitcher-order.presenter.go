@@ -12,27 +12,13 @@ func ToResponse(kitchenOrder entities.KitchenOrder) dtos.KitchenOrderResponseDTO
 		Name: kitchenOrder.Status.Name.Value(),
 	}
 
-	items := make([]dtos.OrderItemDTO, len(kitchenOrder.Items))
-	for i, item := range kitchenOrder.Items {
-		items[i] = dtos.OrderItemDTO{
-			ID:        item.ID,
-			OrderID:   item.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-		}
-	}
-
 	return dtos.KitchenOrderResponseDTO{
-		ID:         kitchenOrder.ID,
-		OrderID:    kitchenOrder.OrderID,
-		CustomerID: kitchenOrder.CustomerID,
-		Amount:     kitchenOrder.Amount,
-		Slug:       kitchenOrder.Slug.Value(),
-		Status:     status,
-		Items:      items,
-		CreatedAt:  kitchenOrder.CreatedAt,
-		UpdatedAt:  kitchenOrder.UpdatedAt,
+		ID:        kitchenOrder.ID,
+		OrderID:   kitchenOrder.OrderID,
+		Slug:      kitchenOrder.Slug.Value(),
+		Status:    status,
+		CreatedAt: kitchenOrder.CreatedAt,
+		UpdatedAt: kitchenOrder.UpdatedAt,
 	}
 }
 

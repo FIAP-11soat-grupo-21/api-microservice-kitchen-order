@@ -28,7 +28,8 @@ type Config struct {
 		ApiBaseURL    string
 	}
 	AWS struct {
-		Region string
+		Region      string
+		EndpointURL string
 	}
 	MessageBroker struct {
 		Type string
@@ -85,7 +86,8 @@ func (c *Config) Load() {
 	c.Database.Password = getEnv("DB_PASSWORD")
 
 	c.AWS.Region = getEnv("AWS_REGION")
-	// Message Broker configuration
+	c.AWS.EndpointURL = os.Getenv("AWS_ENDPOINT_URL")
+	
 	c.MessageBroker.Type = getEnv("MESSAGE_BROKER_TYPE")
 
 	if c.MessageBroker.Type == "sqs" {

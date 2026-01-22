@@ -197,7 +197,8 @@ func TestFindAll_Success(t *testing.T) {
 	assert.Len(t, response, 1)
 	assert.Equal(t, "550e8400-e29b-41d4-a716-446655440000", response[0]["id"])
 	assert.Equal(t, "order-001", response[0]["order_id"])
-	assert.Equal(t, 100.50, response[0]["amount"])
+	assert.Equal(t, "001", response[0]["slug"])
+	assert.Equal(t, "Recebido", response[0]["status"])
 	mockDataSource.AssertExpectations(t)
 }
 
@@ -247,7 +248,7 @@ func TestFindByID_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, kitchenOrder.ID, response["id"])
 	assert.Equal(t, "order-001", response["order_id"])
-	assert.Equal(t, 100.50, response["amount"])
+	assert.Equal(t, "001", response["slug"])
 	assert.Equal(t, "Recebido", response["status"])
 	mockDataSource.AssertExpectations(t)
 }
@@ -281,29 +282,10 @@ func TestFindByID_WithMultipleItems(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-
-	respItems := response["items"].([]interface{})
-	assert.Len(t, respItems, 3)
-
-	for i, item := range respItems {
-		itemMap := item.(map[string]interface{})
-		assert.NotEmpty(t, itemMap["id"])
-		assert.Equal(t, "order-001", itemMap["order_id"])
-		assert.NotEmpty(t, itemMap["product_id"])
-		assert.Greater(t, itemMap["quantity"], float64(0))
-		assert.Greater(t, itemMap["unit_price"], 0.0)
-
-		if i == 0 {
-			assert.Equal(t, "item-001", itemMap["id"])
-			assert.Equal(t, "prod-001", itemMap["product_id"])
-		} else if i == 1 {
-			assert.Equal(t, "item-002", itemMap["id"])
-			assert.Equal(t, "prod-002", itemMap["product_id"])
-		} else if i == 2 {
-			assert.Equal(t, "item-003", itemMap["id"])
-			assert.Equal(t, "prod-003", itemMap["product_id"])
-		}
-	}
+	assert.Equal(t, kitchenOrderID, response["id"])
+	assert.Equal(t, "order-001", response["order_id"])
+	assert.Equal(t, "001", response["slug"])
+	assert.Equal(t, "Recebido", response["status"])
 	mockDataSource.AssertExpectations(t)
 }
 
@@ -401,14 +383,7 @@ func TestUpdate_WithItems(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, kitchenOrderID, response["id"])
 	assert.Equal(t, "Em preparação", response["status"])
-
-	respItems := response["items"].([]interface{})
-	assert.Len(t, respItems, 1)
-	item := respItems[0].(map[string]interface{})
-	assert.Equal(t, "item-001", item["id"])
-	assert.Equal(t, "prod-001", item["product_id"])
-	assert.Equal(t, float64(2), item["quantity"])
-	assert.Equal(t, 50.25, item["unit_price"])
+	assert.Equal(t, "001", response["slug"])
 	mockDataSource.AssertExpectations(t)
 }
 

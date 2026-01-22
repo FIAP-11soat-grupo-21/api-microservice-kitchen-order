@@ -22,8 +22,9 @@ func NewMessageBroker(ctx context.Context) (interfaces.MessageBroker, error) {
 	switch brokerType {
 	case MessageBrokerSQS:
 		broker := sqs.NewSQSBroker(sqs.SQSConfig{
-			Region:   config.AWS.Region,
-			QueueURL: config.MessageBroker.SQS.QueueURL,
+			Region:      config.AWS.Region,
+			QueueURL:    config.MessageBroker.SQS.QueueURL,
+			EndpointURL: config.AWS.EndpointURL,
 		})
 		if err := broker.Connect(ctx); err != nil {
 			return nil, fmt.Errorf("failed to connect to SQS: %w", err)

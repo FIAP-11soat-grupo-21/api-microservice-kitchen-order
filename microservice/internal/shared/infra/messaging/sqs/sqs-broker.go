@@ -30,8 +30,9 @@ type SQSClientInterface interface {
 }
 
 type SQSConfig struct {
-	Region   string
-	QueueURL string
+	Region      string
+	QueueURL    string
+	EndpointURL string
 }
 
 func NewSQSBroker(config SQSConfig) *SQSBroker {
@@ -54,9 +55,23 @@ func (s *SQSBroker) Connect(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cfg, err := config.LoadDefaultConfig(ctx,
+	configOptions := []func(*config.LoadOptions) error{
 		config.WithRegion(s.config.Region),
-	)
+	}
+
+	// Se tiver endpoint customizado (LocalStack), adiciona
+	if s.config.EndpointURL != "" {
+		configOptions = append(configOptions, config.WithEndpointResolverWithOptions(
+			aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					URL:               s.config.EndpointURL,
+					HostnameImmutable: true,
+				}, nil
+			}),
+		))
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, configOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}

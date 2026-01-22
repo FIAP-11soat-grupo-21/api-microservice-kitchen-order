@@ -24,7 +24,7 @@ func NewCreateKitchenOrderUseCase(kitchenOrderGateway gateways.KitchenOrderGatew
 	}
 }
 
-func (ko *CreateKitchenOrderUseCase) Execute(orderID string, customerID *string, amount float64, items []dtos.OrderItemDTO) (entities.KitchenOrder, error) {
+func (ko *CreateKitchenOrderUseCase) Execute(orderID string) (entities.KitchenOrder, error) {
 
 	status, err := ko.orderStatusGateway.FindByID(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID)
 
@@ -49,28 +49,10 @@ func (ko *CreateKitchenOrderUseCase) Execute(orderID string, customerID *string,
 
 	slug := fmt.Sprintf("%03d", len(orders)+1)
 
-	orderItems := make([]entities.OrderItem, len(items))
-	for i, item := range items {
-		orderItem, err := entities.NewOrderItem(
-			identity_manager.NewUUIDV4(),
-			orderID,
-			item.ProductID,
-			item.Quantity,
-			item.UnitPrice,
-		)
-		if err != nil {
-			return entities.KitchenOrder{}, err
-		}
-		orderItems[i] = *orderItem
-	}
-
-	kitchenOrder, err := entities.NewKitchenOrderWithOrderData(
+	kitchenOrder, err := entities.NewKitchenOrder(
 		identity_manager.NewUUIDV4(),
 		orderID,
 		slug,
-		customerID,
-		amount,
-		orderItems,
 		status,
 		time.Now(),
 		nil,

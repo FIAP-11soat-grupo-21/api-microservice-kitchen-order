@@ -29,17 +29,7 @@ func NewKitchenOrderConsumer(broker interfaces.MessageBroker) *KitchenOrderConsu
 }
 
 type CreateKitchenOrderMessage struct {
-	OrderID    string                    `json:"order_id"`
-	CustomerID *string                   `json:"customer_id"`
-	Amount     float64                   `json:"amount"`
-	Items      []CreateOrderItemMessage  `json:"items"`
-}
-
-type CreateOrderItemMessage struct {
-	ID        string  `json:"id"`
-	ProductID string  `json:"product_id"`
-	Quantity  int     `json:"quantity"`
-	UnitPrice float64 `json:"unit_price"`
+	OrderID string `json:"order_id"`
 }
 
 type KitchenOrderResponse struct {
@@ -67,23 +57,10 @@ func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.
 		return err
 	}
 
-	log.Printf("Received kitchen order creation request for order: %s with %d items", createMsg.OrderID, len(createMsg.Items))
-
-	items := make([]dtos.OrderItemDTO, len(createMsg.Items))
-	for i, item := range createMsg.Items {
-		items[i] = dtos.OrderItemDTO{
-			OrderID:   createMsg.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-		}
-	}
+	log.Printf("Received kitchen order creation request for order: %s", createMsg.OrderID)
 
 	kitchenOrder, err := c.kitchenOrderController.Create(dtos.CreateKitchenOrderDTO{
-		OrderID:    createMsg.OrderID,
-		CustomerID: createMsg.CustomerID,
-		Amount:     createMsg.Amount,
-		Items:      items,
+		OrderID: createMsg.OrderID,
 	})
 
 	response := KitchenOrderResponse{
@@ -95,7 +72,7 @@ func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.
 		log.Printf("Error creating kitchen order: %v", err)
 	} else {
 		response.Data = kitchenOrder
-		log.Printf("Kitchen order created successfully: %s (Amount: %.2f, Items: %d)", kitchenOrder.ID, createMsg.Amount, len(createMsg.Items))
+		log.Printf("Kitchen order created successfully: %s (Slug: %s)", kitchenOrder.ID, kitchenOrder.Slug)
 	}
 
 	responseBody, marshalErr := json.Marshal(response)
