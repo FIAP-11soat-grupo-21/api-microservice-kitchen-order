@@ -181,52 +181,12 @@ func TestToResponse_WithItems(t *testing.T) {
 		t.Errorf("Expected Slug '005', got %s", response.Slug)
 	}
 
-	if response.Amount != 55.00 {
-		t.Errorf("Expected Amount 55.00, got %f", response.Amount)
-	}
-
 	if response.Status.ID != constants.KITCHEN_ORDER_STATUS_PREPARING_ID {
 		t.Errorf("Expected Status ID %s, got %s", constants.KITCHEN_ORDER_STATUS_PREPARING_ID, response.Status.ID)
 	}
 
 	if response.Status.Name != "Em preparação" {
 		t.Errorf("Expected Status Name 'Em preparação', got %s", response.Status.Name)
-	}
-
-	if len(response.Items) != 2 {
-		t.Errorf("Expected 2 items, got %d", len(response.Items))
-	}
-
-	if response.Items[0].ID != "item-1" {
-		t.Errorf("Expected first item ID 'item-1', got %s", response.Items[0].ID)
-	}
-
-	if response.Items[0].ProductID != "product-1" {
-		t.Errorf("Expected first item ProductID 'product-1', got %s", response.Items[0].ProductID)
-	}
-
-	if response.Items[0].Quantity != 2 {
-		t.Errorf("Expected first item Quantity 2, got %d", response.Items[0].Quantity)
-	}
-
-	if response.Items[0].UnitPrice != 15.50 {
-		t.Errorf("Expected first item UnitPrice 15.50, got %f", response.Items[0].UnitPrice)
-	}
-
-	if response.Items[1].ID != "item-2" {
-		t.Errorf("Expected second item ID 'item-2', got %s", response.Items[1].ID)
-	}
-
-	if response.Items[1].ProductID != "product-2" {
-		t.Errorf("Expected second item ProductID 'product-2', got %s", response.Items[1].ProductID)
-	}
-
-	if response.Items[1].Quantity != 1 {
-		t.Errorf("Expected second item Quantity 1, got %d", response.Items[1].Quantity)
-	}
-
-	if response.Items[1].UnitPrice != 25.00 {
-		t.Errorf("Expected second item UnitPrice 25.00, got %f", response.Items[1].UnitPrice)
 	}
 }
 
@@ -252,12 +212,16 @@ func TestToResponse_WithCustomerID(t *testing.T) {
 	response := ToResponse(*kitchenOrder)
 
 	// Assert
-	if response.CustomerID == nil || *response.CustomerID != customerID {
-		t.Errorf("Expected CustomerID %s, got %v", customerID, response.CustomerID)
+	if response.ID != "order-id-2" {
+		t.Errorf("Expected ID 'order-id-2', got %s", response.ID)
 	}
 
-	if response.Amount != 100.00 {
-		t.Errorf("Expected Amount 100.00, got %f", response.Amount)
+	if response.OrderID != "order-456" {
+		t.Errorf("Expected OrderID 'order-456', got %s", response.OrderID)
+	}
+
+	if response.Slug != "010" {
+		t.Errorf("Expected Slug '010', got %s", response.Slug)
 	}
 }
 
@@ -399,19 +363,11 @@ func TestToResponseList_WithItemsInOrders(t *testing.T) {
 		t.Errorf("Expected 2 responses, got %d", len(responses))
 	}
 
-	if len(responses[0].Items) != 1 {
-		t.Errorf("Expected response[0] to have 1 item, got %d", len(responses[0].Items))
+	if responses[0].ID != "id1" {
+		t.Errorf("Expected response[0].ID 'id1', got %s", responses[0].ID)
 	}
 
-	if responses[0].Items[0].ProductID != "product-1" {
-		t.Errorf("Expected response[0].Items[0].ProductID 'product-1', got %s", responses[0].Items[0].ProductID)
-	}
-
-	if len(responses[1].Items) != 1 {
-		t.Errorf("Expected response[1] to have 1 item, got %d", len(responses[1].Items))
-	}
-
-	if responses[1].Items[0].ProductID != "product-2" {
-		t.Errorf("Expected response[1].Items[0].ProductID 'product-2', got %s", responses[1].Items[0].ProductID)
+	if responses[1].ID != "id2" {
+		t.Errorf("Expected response[1].ID 'id2', got %s", responses[1].ID)
 	}
 }

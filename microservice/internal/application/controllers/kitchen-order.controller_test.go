@@ -124,10 +124,6 @@ func createTestKitchenOrder(id string) daos.KitchenOrderDAO {
 	}
 }
 
-func stringPtr(s string) *string {
-	return &s
-}
-
 // Tests
 func TestNewKitchenOrderController(t *testing.T) {
 	controller, mockKitchenOrderDS, mockOrderStatusDS := createTestController()
@@ -147,12 +143,7 @@ func TestKitchenOrderController_Create(t *testing.T) {
 	controller, _, _ := createTestController()
 
 	createDTO := dtos.CreateKitchenOrderDTO{
-		OrderID:    "order-123",
-		CustomerID: stringPtr("customer-456"),
-		Amount:     25.50,
-		Items: []dtos.OrderItemDTO{
-			{ProductID: "product-1", Quantity: 2, UnitPrice: 12.75},
-		},
+		OrderID: "order-123",
 	}
 
 	result, err := controller.Create(createDTO)

@@ -38,31 +38,14 @@ func NewKitchenOrderHandler() *KitchenOrderHandler {
 	}
 }
 
-func (h *KitchenOrderHandler) toItemResponseSchema(items []dtos.OrderItemDTO) []schemas.OrderItemResponseSchema {
-	responses := make([]schemas.OrderItemResponseSchema, len(items))
-	for i, item := range items {
-		responses[i] = schemas.OrderItemResponseSchema{
-			ID:        item.ID,
-			OrderID:   item.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-		}
-	}
-	return responses
-}
-
 func (h *KitchenOrderHandler) toKitchenOrderResponseSchema(kitchenOrder dtos.KitchenOrderResponseDTO) schemas.KitchenOrderResponseSchema {
 	return schemas.KitchenOrderResponseSchema{
-		ID:         kitchenOrder.ID,
-		OrderID:    kitchenOrder.OrderID,
-		CustomerID: kitchenOrder.CustomerID,
-		Amount:     kitchenOrder.Amount,
-		Status:     kitchenOrder.Status.Name,
-		Slug:       kitchenOrder.Slug,
-		Items:      h.toItemResponseSchema(kitchenOrder.Items),
-		CreatedAt:  kitchenOrder.CreatedAt,
-		UpdatedAt:  kitchenOrder.UpdatedAt,
+		ID:        kitchenOrder.ID,
+		OrderID:   kitchenOrder.OrderID,
+		Status:    kitchenOrder.Status.Name,
+		Slug:      kitchenOrder.Slug,
+		CreatedAt: kitchenOrder.CreatedAt,
+		UpdatedAt: kitchenOrder.UpdatedAt,
 	}
 }
 

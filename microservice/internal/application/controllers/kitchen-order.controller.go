@@ -34,12 +34,7 @@ func NewKitchenOrderController(
 func (c *KitchenOrderController) Create(kitchenOrderDTO dtos.CreateKitchenOrderDTO) (dtos.KitchenOrderResponseDTO, error) {
 	kitchenOrderUseCase := use_cases.NewCreateKitchenOrderUseCase(c.kitchenOrderGateway, c.orderStatusGateway)
 
-	kitchenOrder, err := kitchenOrderUseCase.Execute(
-		kitchenOrderDTO.OrderID,
-		kitchenOrderDTO.CustomerID,
-		kitchenOrderDTO.Amount,
-		kitchenOrderDTO.Items,
-	)
+	kitchenOrder, err := kitchenOrderUseCase.Execute(kitchenOrderDTO.OrderID)
 
 	if err != nil {
 		return dtos.KitchenOrderResponseDTO{}, err

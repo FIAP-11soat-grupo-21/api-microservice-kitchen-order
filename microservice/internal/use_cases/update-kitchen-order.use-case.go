@@ -33,9 +33,8 @@ func NewUpdateKitchenOrderUseCase(
 }
 
 type KitchenOrderStatusUpdateMessage struct {
-	OrderID   string `json:"order_id"`
-	Status    string `json:"status"`
-	UpdatedAt string `json:"updated_at"`
+	OrderID string `json:"order_id"`
+	Status  string `json:"status"`
 }
 
 func (ko *UpdateKitchenOrderUseCase) Execute(kitchenOrderDTO dtos.UpdateKitchenOrderDTO) (entities.KitchenOrder, error) {
@@ -89,9 +88,8 @@ func (ko *UpdateKitchenOrderUseCase) shouldNotifyOrders(status string) bool {
 
 func (ko *UpdateKitchenOrderUseCase) notifyOrdersService(kitchenOrder entities.KitchenOrder, status string) {
 	message := KitchenOrderStatusUpdateMessage{
-		OrderID:   kitchenOrder.OrderID,
-		Status:    status,
-		UpdatedAt: time.Now().Format(time.RFC3339),
+		OrderID: kitchenOrder.OrderID,
+		Status:  status,
 	}
 
 	messageBody, err := json.Marshal(message)

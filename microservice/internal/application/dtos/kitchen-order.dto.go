@@ -21,10 +21,7 @@ type OrderItemDTO struct {
 }
 
 type CreateKitchenOrderDTO struct {
-	OrderID    string
-	CustomerID *string
-	Amount     float64
-	Items      []OrderItemDTO
+	OrderID string
 }
 
 type UpdateKitchenOrderDTO struct {
@@ -39,13 +36,10 @@ type KitchenOrderFilter struct {
 }
 
 type KitchenOrderResponseDTO struct {
-	ID         string
-	OrderID    string
-	CustomerID *string
-	Amount     float64
-	Slug       string
-	Status     OrderStatusDTO
-	Items      []OrderItemDTO
-	CreatedAt  time.Time
-	UpdatedAt  *time.Time
+	ID        string
+	OrderID   string
+	Slug      string
+	Status    OrderStatusDTO
+	CreatedAt time.Time
+	UpdatedAt *time.Time
 }
