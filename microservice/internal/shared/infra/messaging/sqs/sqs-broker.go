@@ -16,11 +16,17 @@ import (
 )
 
 type SQSBroker struct {
-	client *sqs.Client
+	client SQSClientInterface
 	config SQSConfig
 	mu     sync.Mutex
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+type SQSClientInterface interface {
+	ReceiveMessage(ctx context.Context, params *sqs.ReceiveMessageInput, optFns ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error)
+	DeleteMessage(ctx context.Context, params *sqs.DeleteMessageInput, optFns ...func(*sqs.Options)) (*sqs.DeleteMessageOutput, error)
+	SendMessage(ctx context.Context, params *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error)
 }
 
 type SQSConfig struct {
@@ -35,6 +41,13 @@ func NewSQSBroker(config SQSConfig) *SQSBroker {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+}
+
+// SetClient permite injetar um cliente mock para testes
+func (s *SQSBroker) SetClient(client SQSClientInterface) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.client = client
 }
 
 func (s *SQSBroker) Connect(ctx context.Context) error {
@@ -111,6 +124,10 @@ func (s *SQSBroker) Subscribe(ctx context.Context, queue string, handler interfa
 	return nil
 }
 
+func (s *SQSBroker) PollMessages(ctx context.Context, queue string, handler interfaces.MessageHandler) {
+	s.pollMessages(ctx, queue, handler)
+}
+
 func (s *SQSBroker) pollMessages(ctx context.Context, queue string, handler interfaces.MessageHandler) {
 	for {
 		select {
@@ -119,49 +136,57 @@ func (s *SQSBroker) pollMessages(ctx context.Context, queue string, handler inte
 		case <-s.ctx.Done():
 			return
 		default:
-			result, err := s.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
-				QueueUrl:            aws.String(s.config.QueueURL),
-				MaxNumberOfMessages: 10,
-				WaitTimeSeconds:     20, // Long polling
-				MessageAttributeNames: []string{
-					"All",
-				},
-			})
-
-			if err != nil {
-				log.Printf("Error receiving messages from SQS: %v", err)
-				continue
-			}
-
-			for _, msg := range result.Messages {
-				headers := make(map[string]string)
-				for k, v := range msg.MessageAttributes {
-					if v.StringValue != nil {
-						headers[k] = *v.StringValue
-					}
-				}
-
-				message := interfaces.Message{
-					ID:      *msg.MessageId,
-					Body:    []byte(*msg.Body),
-					Headers: headers,
-				}
-
-				if err := handler(ctx, message); err != nil {
-					log.Printf("Error processing message: %v", err)
-					continue
-				}
-
-				_, err := s.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
-					QueueUrl:      aws.String(s.config.QueueURL),
-					ReceiptHandle: msg.ReceiptHandle,
-				})
-
-				if err != nil {
-					log.Printf("Error deleting message from SQS: %v", err)
-				}
-			}
+			s.processBatch(ctx, handler)
 		}
+	}
+}
+
+func (s *SQSBroker) processBatch(ctx context.Context, handler interfaces.MessageHandler) {
+	result, err := s.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
+		QueueUrl:            aws.String(s.config.QueueURL),
+		MaxNumberOfMessages: 10,
+		WaitTimeSeconds:     20, // Long polling
+		MessageAttributeNames: []string{
+			"All",
+		},
+	})
+
+	if err != nil {
+		log.Printf("Error receiving messages from SQS: %v", err)
+		return
+	}
+
+	for _, msg := range result.Messages {
+		s.processMessage(ctx, msg, handler)
+	}
+}
+
+func (s *SQSBroker) processMessage(ctx context.Context, msg types.Message, handler interfaces.MessageHandler) {
+	headers := make(map[string]string)
+	for k, v := range msg.MessageAttributes {
+		if v.StringValue != nil {
+			headers[k] = *v.StringValue
+		}
+	}
+
+	message := interfaces.Message{
+		ID:      *msg.MessageId,
+		Body:    []byte(*msg.Body),
+		Headers: headers,
+	}
+
+	if err := handler(ctx, message); err != nil {
+		log.Printf("Error processing message: %v", err)
+		return
+	}
+
+	_, err := s.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
+		QueueUrl:      aws.String(s.config.QueueURL),
+		ReceiptHandle: msg.ReceiptHandle,
+	})
+
+	if err != nil {
+		log.Printf("Error deleting message from SQS: %v", err)
 	}
 }
 
