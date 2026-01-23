@@ -26,13 +26,6 @@ func NewCreateKitchenOrderUseCase(kitchenOrderGateway gateways.KitchenOrderGatew
 
 func (ko *CreateKitchenOrderUseCase) Execute(orderID string) (entities.KitchenOrder, error) {
 
-	status, err := ko.orderStatusGateway.FindByID(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID)
-
-	if err != nil {
-		return entities.KitchenOrder{}, &exceptions.OrderStatusNotFoundException{}
-	}
-
-	// Filters the day's orders for slug generation
 	now := time.Now()
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	to := now
@@ -45,6 +38,18 @@ func (ko *CreateKitchenOrderUseCase) Execute(orderID string) (entities.KitchenOr
 	orders, err := ko.kitchenOrderGateway.FindAll(filterDailyKitchenOrder)
 	if err != nil {
 		return entities.KitchenOrder{}, err
+	}
+
+	for _, existingOrder := range orders {
+		if existingOrder.OrderID == orderID {
+			return existingOrder, nil
+		}
+	}
+
+	status, err := ko.orderStatusGateway.FindByID(constants.KITCHEN_ORDER_STATUS_RECEIVED_ID)
+
+	if err != nil {
+		return entities.KitchenOrder{}, &exceptions.OrderStatusNotFoundException{}
 	}
 
 	slug := fmt.Sprintf("%03d", len(orders)+1)
