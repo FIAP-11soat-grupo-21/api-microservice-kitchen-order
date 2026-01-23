@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"tech_challenge/internal"
-	"tech_challenge/internal/application/controllers"
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/shared/interfaces"
 )
@@ -134,20 +133,6 @@ func (c *KitchenOrderConsumerTestable) handleCreate(ctx context.Context, msg int
 	}
 
 	return err
-}
-
-// Helper function to create a consumer with mocked controller
-func createConsumerWithMocks(mockBroker *MockMessageBroker, mockController *MockKitchenOrderController) *KitchenOrderConsumer {
-	consumer := &KitchenOrderConsumer{
-		broker: mockBroker,
-	}
-	
-	if mockController != nil {
-		consumer.kitchenOrderController = controllers.KitchenOrderController{}
-		// Inject mock through reflection or use the mock directly in tests
-	}
-	
-	return consumer
 }
 
 // Tests for NewKitchenOrderConsumer
@@ -840,7 +825,7 @@ func TestKitchenOrderConsumer_HandleCreate_ResponseMessageStructure(t *testing.T
 		},
 	}
 
-	consumer.handleCreate(ctx, msg)
+	_ = consumer.handleCreate(ctx, msg)
 
 	// Verifica a estrutura da mensagem de resposta
 	assert.Equal(t, "correlation-xyz", capturedMsg.ID)
@@ -849,7 +834,7 @@ func TestKitchenOrderConsumer_HandleCreate_ResponseMessageStructure(t *testing.T
 
 	// Verifica o conteúdo da resposta
 	var response KitchenOrderResponse
-	json.Unmarshal(capturedMsg.Body, &response)
+	_ = json.Unmarshal(capturedMsg.Body, &response)
 	assert.True(t, response.Success)
 	assert.Empty(t, response.Error)
 	assert.NotNil(t, response.Data)
@@ -933,7 +918,7 @@ func TestKitchenOrderConsumer_HandleCreate_Integration_CoverageOnly(t *testing.T
 	}
 
 	// Este teste vai falhar sem banco, mas executa o código para cobertura
-	consumer.handleCreate(ctx, msg)
+	_ = consumer.handleCreate(ctx, msg)
 }
 
 // Teste que força a execução de todos os branches do handleCreate
@@ -984,7 +969,7 @@ func TestKitchenOrderConsumer_HandleCreate_AllBranches_Coverage(t *testing.T) {
 		}
 
 		// Vai falhar/panic no controller mas executa o código para cobertura
-		consumer.handleCreate(ctx, msg)
+		_ = consumer.handleCreate(ctx, msg)
 	})
 
 	t.Run("Controller execution without reply-to - captures panic", func(t *testing.T) {
@@ -1011,7 +996,7 @@ func TestKitchenOrderConsumer_HandleCreate_AllBranches_Coverage(t *testing.T) {
 		}
 
 		// Vai falhar/panic no controller mas executa o código para cobertura
-		consumer.handleCreate(ctx, msg)
+		_ = consumer.handleCreate(ctx, msg)
 	})
 
 	t.Run("Publish error branch - captures panic", func(t *testing.T) {
@@ -1043,7 +1028,7 @@ func TestKitchenOrderConsumer_HandleCreate_AllBranches_Coverage(t *testing.T) {
 		}
 
 		// Vai falhar/panic no controller mas executa o código para cobertura
-		consumer.handleCreate(ctx, msg)
+		_ = consumer.handleCreate(ctx, msg)
 	})
 }
 
