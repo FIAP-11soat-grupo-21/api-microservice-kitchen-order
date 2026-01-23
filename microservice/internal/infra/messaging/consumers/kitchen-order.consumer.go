@@ -51,6 +51,8 @@ func (c *KitchenOrderConsumer) Start(ctx context.Context) error {
 }
 
 func (c *KitchenOrderConsumer) handleCreate(ctx context.Context, msg interfaces.Message) error {
+
+	log.Printf("Message Body (raw): %s", string(msg.Body))
 	var createMsg CreateKitchenOrderMessage
 	if err := json.Unmarshal(msg.Body, &createMsg); err != nil {
 		log.Printf("Error unmarshaling create message: %v", err)
