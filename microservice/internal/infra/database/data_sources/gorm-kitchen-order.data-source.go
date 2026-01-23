@@ -80,7 +80,19 @@ func (r *GormKitchenOrderDataSource) FindByID(id string) (daos.KitchenOrderDAO, 
 }
 
 func (r *GormKitchenOrderDataSource) Update(kitchenOrder daos.KitchenOrderDAO) error {
-	return r.db.Save(mappers.FromDAOToModelKitchenOrder(kitchenOrder)).Error
+	var existing models.KitchenOrderModel
+	if err := r.db.First(&existing, "id = ?", kitchenOrder.ID).Error; err != nil {
+		return err
+	}
+
+	updates := map[string]interface{}{
+		"status_id":  kitchenOrder.Status.ID,
+		"updated_at": kitchenOrder.UpdatedAt,
+	}
+
+	return r.db.Model(&models.KitchenOrderModel{}).
+		Where("id = ?", kitchenOrder.ID).
+		Updates(updates).Error
 }
 
 func (r *GormKitchenOrderDataSource) Delete(id string) error {
