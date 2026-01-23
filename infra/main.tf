@@ -53,17 +53,13 @@ module "GetKitchenOrderAPIRoute" {
       route_key  = "GET /kitchen-orders"
       restricted = false
     },
-    create_kitchen_order = {
-      route_key  = "POST /kitchen-orders"
-      restricted = false
-    },
     update_kitchen_order = {
       route_key  = "PUT /kitchen-orders/{id}"
       restricted = false
     },
-    delete_kitchen_order = {
-      route_key  = "DELETE /kitchen-orders/{id}"
+    get_all_status = {
+      route_key  = "GET /kitchen-orders/status"
       restricted = false
-    }
+    },
   }
 }
