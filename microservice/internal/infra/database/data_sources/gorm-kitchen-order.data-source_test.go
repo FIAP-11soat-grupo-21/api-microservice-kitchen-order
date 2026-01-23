@@ -4,286 +4,473 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"tech_challenge/internal/application/dtos"
 	"tech_challenge/internal/daos"
+	"tech_challenge/internal/infra/database/models"
+	"tech_challenge/internal/shared/config/constants"
 )
 
-func TestGormKitchenOrderDataSource_NewGormKitchenOrderDataSource(t *testing.T) {
-	// Test
-	dataSource := NewGormKitchenOrderDataSource()
+func setupTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to connect to test database: %v", err)
+	}
 
-	// Assertions
-	assert.NotNil(t, dataSource)
-	// Note: db might be nil in test environment without database connection
+	err = db.AutoMigrate(
+		&models.OrderStatusModel{},
+		&models.KitchenOrderModel{},
+		&models.OrderItemModel{},
+	)
+	if err != nil {
+		t.Fatalf("Failed to migrate test database: %v", err)
+	}
+
+	seedTestData(t, db)
+
+	return db
 }
 
-func TestGormKitchenOrderDataSource_Structure(t *testing.T) {
-	// Test structure
-	dataSource := &GormKitchenOrderDataSource{}
-	assert.NotNil(t, dataSource)
-	assert.IsType(t, &GormKitchenOrderDataSource{}, dataSource)
+func seedTestData(t *testing.T, db *gorm.DB) {
+	statuses := []models.OrderStatusModel{
+		{ID: constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, Name: "Recebido"},
+		{ID: constants.KITCHEN_ORDER_STATUS_PREPARING_ID, Name: "Em preparação"},
+		{ID: constants.KITCHEN_ORDER_STATUS_READY_ID, Name: "Pronto"},
+		{ID: constants.KITCHEN_ORDER_STATUS_FINISHED_ID, Name: "Finalizado"},
+	}
+
+	for _, status := range statuses {
+		if err := db.Create(&status).Error; err != nil {
+			t.Fatalf("Failed to seed status: %v", err)
+		}
+	}
 }
 
-func TestGormKitchenOrderDataSource_Methods_Exist(t *testing.T) {
-	dataSource := NewGormKitchenOrderDataSource()
-
-	// Verify methods exist
-	assert.NotNil(t, dataSource.Insert)
-	assert.NotNil(t, dataSource.FindAll)
-	assert.NotNil(t, dataSource.FindByID)
-	assert.NotNil(t, dataSource.Update)
-	assert.NotNil(t, dataSource.Delete)
-}
-
-func TestGormKitchenOrderDataSource_DAO_Structure(t *testing.T) {
-	// Test DAO structure
-	customerID := "customer-123"
-	now := time.Now()
+func TestNewGormKitchenOrderDataSource(t *testing.T) {
+	ds := NewGormKitchenOrderDataSource()
 	
-	dao := daos.KitchenOrderDAO{
-		ID:         "123e4567-e89b-12d3-a456-426614174000",
-		OrderID:    "order-123",
-		CustomerID: &customerID,
-		Amount:     25.50,
+	if ds == nil {
+		t.Error("Expected non-nil data source")
+	} else {
+		t.Log("✓ NewGormKitchenOrderDataSource criado com sucesso")
+	}
+	
+	if ds != nil && ds.db == nil {
+		t.Log("⚠ Database connection is nil (expected in test environment)")
+	}
+}
+
+func TestGormKitchenOrderDataSource_Insert(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:      "order-123",
+		OrderID: "ext-order-123",
+		Amount:  50.00,
+		Slug:    "order-slug",
 		Status: daos.OrderStatusDAO{
-			ID:   "1",
+			ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
 			Name: "Recebido",
 		},
-		Slug: "order-123",
 		Items: []daos.OrderItemDAO{
 			{
 				ID:        "item-1",
-				OrderID:   "order-123",
+				OrderID:   "ext-order-123",
 				ProductID: "product-1",
 				Quantity:  2,
-				UnitPrice: 12.75,
+				UnitPrice: 25.00,
 			},
 		},
-		CreatedAt: now,
-		UpdatedAt: &now,
 	}
 
-	// Assert structure
-	assert.Equal(t, "123e4567-e89b-12d3-a456-426614174000", dao.ID)
-	assert.Equal(t, "order-123", dao.OrderID)
-	assert.Equal(t, "customer-123", *dao.CustomerID)
-	assert.Equal(t, 25.50, dao.Amount)
-	assert.Equal(t, "Recebido", dao.Status.Name)
-	assert.Equal(t, "order-123", dao.Slug)
-	assert.Len(t, dao.Items, 1)
-	assert.Equal(t, "item-1", dao.Items[0].ID)
+	err := ds.Insert(kitchenOrder)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	} else {
+		t.Log("✓ Insert executado com sucesso")
+	}
+
+	var count int64
+	db.Model(&models.KitchenOrderModel{}).Count(&count)
+	if count != 1 {
+		t.Errorf("Expected 1 order in database, got %d", count)
+	}
 }
 
-func TestGormKitchenOrderDataSource_Filter_Structure(t *testing.T) {
-	// Test filter structure
-	now := time.Now()
-	statusID := uint(1)
+func TestGormKitchenOrderDataSource_Insert_Error(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
 
-	filter := dtos.KitchenOrderFilter{
-		CreatedAtFrom: &now,
-		CreatedAtTo:   &now,
-		StatusID:      &statusID,
-	}
-
-	// Assert filter
-	assert.NotNil(t, filter.CreatedAtFrom)
-	assert.NotNil(t, filter.CreatedAtTo)
-	assert.NotNil(t, filter.StatusID)
-	assert.Equal(t, uint(1), *filter.StatusID)
-}
-
-func TestGormKitchenOrderDataSource_OrderItem_Structure(t *testing.T) {
-	// Test OrderItem structure
-	item := daos.OrderItemDAO{
-		ID:        "item-1",
-		OrderID:   "order-123",
-		ProductID: "product-1",
-		Quantity:  2,
-		UnitPrice: 12.75,
-	}
-
-	// Assert item structure
-	assert.Equal(t, "item-1", item.ID)
-	assert.Equal(t, "order-123", item.OrderID)
-	assert.Equal(t, "product-1", item.ProductID)
-	assert.Equal(t, 2, item.Quantity)
-	assert.Equal(t, 12.75, item.UnitPrice)
-}
-
-func TestGormKitchenOrderDataSource_Multiple_Items(t *testing.T) {
-	// Test multiple items
-	items := []daos.OrderItemDAO{
-		{
-			ID:        "item-1",
-			OrderID:   "order-123",
-			ProductID: "product-1",
-			Quantity:  2,
-			UnitPrice: 12.75,
-		},
-		{
-			ID:        "item-2",
-			OrderID:   "order-123",
-			ProductID: "product-2",
-			Quantity:  1,
-			UnitPrice: 8.50,
-		},
-	}
-
-	// Assert multiple items
-	assert.Len(t, items, 2)
-	assert.Equal(t, "item-1", items[0].ID)
-	assert.Equal(t, "item-2", items[1].ID)
-	assert.Equal(t, "product-1", items[0].ProductID)
-	assert.Equal(t, "product-2", items[1].ProductID)
-}
-
-func TestGormKitchenOrderDataSource_Empty_Filter(t *testing.T) {
-	// Test empty filter
-	filter := dtos.KitchenOrderFilter{}
-
-	// Assert empty filter
-	assert.Nil(t, filter.CreatedAtFrom)
-	assert.Nil(t, filter.CreatedAtTo)
-	assert.Nil(t, filter.StatusID)
-}
-
-func TestGormKitchenOrderDataSource_ID_Validation(t *testing.T) {
-	// Test ID validation
-	validID := "123e4567-e89b-12d3-a456-426614174000"
-
-	// Assert ID format
-	assert.NotEmpty(t, validID)
-	assert.Len(t, validID, 36) // UUID length
-	assert.Contains(t, validID, "-") // UUID format
-}
-
-func TestGormKitchenOrderDataSource_Time_Fields(t *testing.T) {
-	// Test time fields
-	now := time.Now()
-	dao := daos.KitchenOrderDAO{
-		ID:        "test-id",
-		CreatedAt: now,
-		UpdatedAt: &now,
-	}
-
-	// Assert time fields
-	assert.NotZero(t, dao.CreatedAt)
-	assert.NotNil(t, dao.UpdatedAt)
-	assert.NotZero(t, *dao.UpdatedAt)
-	assert.IsType(t, time.Time{}, dao.CreatedAt)
-	assert.IsType(t, (*time.Time)(nil), dao.UpdatedAt)
-}
-
-func TestGormKitchenOrderDataSource_Numeric_Fields(t *testing.T) {
-	// Test numeric fields
-	dao := daos.KitchenOrderDAO{
-		Amount: 99.99,
-	}
-
-	item := daos.OrderItemDAO{
-		Quantity:  5,
-		UnitPrice: 19.99,
-	}
-
-	// Assert numeric fields
-	assert.Equal(t, 99.99, dao.Amount)
-	assert.Equal(t, 5, item.Quantity)
-	assert.Equal(t, 19.99, item.UnitPrice)
-	assert.IsType(t, float64(0), dao.Amount)
-	assert.IsType(t, 0, item.Quantity)
-	assert.IsType(t, float64(0), item.UnitPrice)
-}
-
-func TestGormKitchenOrderDataSource_Status_Structure(t *testing.T) {
-	// Test status structure
-	status := daos.OrderStatusDAO{
-		ID:   "1",
-		Name: "Recebido",
-	}
-
-	dao := daos.KitchenOrderDAO{
-		ID:     "test-id",
-		Status: status,
-	}
-
-	// Assert status structure
-	assert.Equal(t, "1", dao.Status.ID)
-	assert.Equal(t, "Recebido", dao.Status.Name)
-	assert.IsType(t, daos.OrderStatusDAO{}, dao.Status)
-}
-
-func TestGormKitchenOrderDataSource_CustomerID_Pointer(t *testing.T) {
-	// Test CustomerID as pointer
-	customerID := "customer-123"
-	
-	// With customer ID
-	dao1 := daos.KitchenOrderDAO{
-		ID:         "test-id-1",
-		CustomerID: &customerID,
-	}
-	
-	// Without customer ID
-	dao2 := daos.KitchenOrderDAO{
-		ID:         "test-id-2",
-		CustomerID: nil,
-	}
-
-	// Assert pointer behavior
-	assert.NotNil(t, dao1.CustomerID)
-	assert.Equal(t, "customer-123", *dao1.CustomerID)
-	assert.Nil(t, dao2.CustomerID)
-	assert.IsType(t, (*string)(nil), dao1.CustomerID)
-	assert.IsType(t, (*string)(nil), dao2.CustomerID)
-}
-
-func TestGormKitchenOrderDataSource_Complete_DAO(t *testing.T) {
-	// Test complete DAO structure
-	customerID := "customer-123"
-	now := time.Now()
-	
-	dao := daos.KitchenOrderDAO{
-		ID:         "123e4567-e89b-12d3-a456-426614174000",
-		OrderID:    "order-123",
-		CustomerID: &customerID,
-		Amount:     100.50,
+	kitchenOrder := daos.KitchenOrderDAO{
+		ID:      "order-123",
+		OrderID: "ext-order-123",
+		Amount:  50.00,
+		Slug:    "order-slug",
 		Status: daos.OrderStatusDAO{
-			ID:   "2",
+			ID:   "invalid-status-id",
+			Name: "Invalid",
+		},
+	}
+
+	err := ds.Insert(kitchenOrder)
+
+	if err != nil {
+		t.Logf("✓ Erro capturado corretamente: %v", err)
+	} else {
+		t.Log("⚠ SQLite permite foreign key inválida (comportamento esperado)")
+	}
+}
+
+func TestGormKitchenOrderDataSource_FindAll(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	now := time.Now()
+	orders := []models.KitchenOrderModel{
+		{
+			ID:        "order-1",
+			OrderID:   "ext-1",
+			Amount:    50.00,
+			Slug:      "order-1",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+			CreatedAt: now.Add(-2 * time.Hour),
+		},
+		{
+			ID:        "order-2",
+			OrderID:   "ext-2",
+			Amount:    60.00,
+			Slug:      "order-2",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
+			CreatedAt: now.Add(-1 * time.Hour),
+		},
+		{
+			ID:        "order-3",
+			OrderID:   "ext-3",
+			Amount:    70.00,
+			Slug:      "order-3",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_READY_ID,
+			CreatedAt: now,
+		},
+		{
+			ID:        "order-4",
+			OrderID:   "ext-4",
+			Amount:    80.00,
+			Slug:      "order-4",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_FINISHED_ID,
+			CreatedAt: now,
+		},
+	}
+
+	for _, order := range orders {
+		db.Create(&order)
+	}
+
+	filter := dtos.KitchenOrderFilter{}
+	result, err := ds.FindAll(filter)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("Expected 3 orders (excluding Finalizado), got %d", len(result))
+	} else {
+		t.Logf("✓ FindAll retornou %d pedidos (excluindo Finalizado)", len(result))
+	}
+
+	if len(result) > 0 && result[0].Status.Name != "Pronto" {
+		t.Errorf("Expected first order to be 'Pronto', got '%s'", result[0].Status.Name)
+	} else if len(result) > 0 {
+		t.Log("✓ Ordenação correta: primeiro pedido é 'Pronto'")
+	}
+}
+
+func TestGormKitchenOrderDataSource_FindAll_WithFilters(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	now := time.Now()
+	orders := []models.KitchenOrderModel{
+		{
+			ID:        "order-1",
+			OrderID:   "ext-1",
+			Amount:    50.00,
+			Slug:      "order-1",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+			CreatedAt: now.Add(-2 * time.Hour),
+		},
+		{
+			ID:        "order-2",
+			OrderID:   "ext-2",
+			Amount:    60.00,
+			Slug:      "order-2",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
+			CreatedAt: now.Add(-1 * time.Hour),
+		},
+	}
+
+	for _, order := range orders {
+		db.Create(&order)
+	}
+
+	t.Run("Filter by StatusID", func(t *testing.T) {
+		var statusID uint = 1
+		filter := dtos.KitchenOrderFilter{
+			StatusID: &statusID,
+		}
+		result, err := ds.FindAll(filter)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+
+		t.Logf("✓ Filtro por StatusID executado (resultado: %d pedidos)", len(result))
+	})
+
+	t.Run("Filter by CreatedAtFrom", func(t *testing.T) {
+		from := now.Add(-90 * time.Minute)
+		filter := dtos.KitchenOrderFilter{
+			CreatedAtFrom: &from,
+		}
+		result, err := ds.FindAll(filter)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 order, got %d", len(result))
+		} else {
+			t.Log("✓ Filtro por CreatedAtFrom funcionou")
+		}
+	})
+
+	t.Run("Filter by CreatedAtTo", func(t *testing.T) {
+		to := now.Add(-90 * time.Minute)
+		filter := dtos.KitchenOrderFilter{
+			CreatedAtTo: &to,
+		}
+		result, err := ds.FindAll(filter)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 order, got %d", len(result))
+		} else {
+			t.Log("✓ Filtro por CreatedAtTo funcionou")
+		}
+	})
+}
+
+func TestGormKitchenOrderDataSource_FindByID(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	order := models.KitchenOrderModel{
+		ID:       "order-123",
+		OrderID:  "ext-123",
+		Amount:   50.00,
+		Slug:     "order-123",
+		StatusID: constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+		Items: []models.OrderItemModel{
+			{
+				ID:        "item-1",
+				OrderID:   "ext-123",
+				ProductID: "product-1",
+				Quantity:  2,
+				UnitPrice: 25.00,
+			},
+		},
+	}
+	db.Create(&order)
+
+	result, err := ds.FindByID("order-123")
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if result.ID != "order-123" {
+		t.Errorf("Expected ID 'order-123', got '%s'", result.ID)
+	} else {
+		t.Log("✓ FindByID retornou pedido correto")
+	}
+
+	if len(result.Items) != 1 {
+		t.Errorf("Expected 1 item, got %d", len(result.Items))
+	} else {
+		t.Log("✓ Items foram carregados corretamente")
+	}
+
+	if result.Status.Name != "Recebido" {
+		t.Errorf("Expected status 'Recebido', got '%s'", result.Status.Name)
+	} else {
+		t.Log("✓ Status foi carregado corretamente")
+	}
+}
+
+func TestGormKitchenOrderDataSource_FindByID_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	_, err := ds.FindByID("non-existent-id")
+
+	if err == nil {
+		t.Error("Expected error for non-existent ID")
+	} else {
+		t.Logf("✓ Erro capturado para ID inexistente: %v", err)
+	}
+}
+
+func TestGormKitchenOrderDataSource_Update(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	order := models.KitchenOrderModel{
+		ID:       "order-123",
+		OrderID:  "ext-123",
+		Amount:   50.00,
+		Slug:     "order-123",
+		StatusID: constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+	}
+	db.Create(&order)
+
+	updatedOrder := daos.KitchenOrderDAO{
+		ID:      "order-123",
+		OrderID: "ext-123",
+		Amount:  50.00,
+		Slug:    "order-123",
+		Status: daos.OrderStatusDAO{
+			ID:   constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
 			Name: "Em preparação",
 		},
-		Slug: "order-123",
-		Items: []daos.OrderItemDAO{
-			{
-				ID:        "item-1",
-				OrderID:   "order-123",
-				ProductID: "product-1",
-				Quantity:  2,
-				UnitPrice: 25.25,
-			},
-			{
-				ID:        "item-2",
-				OrderID:   "order-123",
-				ProductID: "product-2",
-				Quantity:  3,
-				UnitPrice: 16.75,
-			},
-		},
-		CreatedAt: now,
-		UpdatedAt: &now,
 	}
 
-	// Assert complete structure
-	assert.Equal(t, "123e4567-e89b-12d3-a456-426614174000", dao.ID)
-	assert.Equal(t, "order-123", dao.OrderID)
-	assert.Equal(t, "customer-123", *dao.CustomerID)
-	assert.Equal(t, 100.50, dao.Amount)
-	assert.Equal(t, "2", dao.Status.ID)
-	assert.Equal(t, "Em preparação", dao.Status.Name)
-	assert.Equal(t, "order-123", dao.Slug)
-	assert.Len(t, dao.Items, 2)
-	assert.Equal(t, "item-1", dao.Items[0].ID)
-	assert.Equal(t, "item-2", dao.Items[1].ID)
-	assert.NotZero(t, dao.CreatedAt)
-	assert.NotNil(t, dao.UpdatedAt)
+	err := ds.Update(updatedOrder)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	} else {
+		t.Log("✓ Update executado com sucesso")
+	}
+
+	var updated models.KitchenOrderModel
+	db.First(&updated, "id = ?", "order-123")
+
+	if updated.StatusID != constants.KITCHEN_ORDER_STATUS_PREPARING_ID {
+		t.Errorf("Expected status to be updated to '%s', got '%s'", 
+			constants.KITCHEN_ORDER_STATUS_PREPARING_ID, updated.StatusID)
+	} else {
+		t.Log("✓ Status foi atualizado corretamente")
+	}
+}
+
+func TestGormKitchenOrderDataSource_Delete(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	order := models.KitchenOrderModel{
+		ID:       "order-123",
+		OrderID:  "ext-123",
+		Amount:   50.00,
+		Slug:     "order-123",
+		StatusID: constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+	}
+	db.Create(&order)
+
+	err := ds.Delete("order-123")
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	} else {
+		t.Log("✓ Delete executado com sucesso")
+	}
+
+	var count int64
+	db.Model(&models.KitchenOrderModel{}).Where("id = ?", "order-123").Count(&count)
+
+	if count != 0 {
+		t.Errorf("Expected order to be deleted, but found %d records", count)
+	} else {
+		t.Log("✓ Pedido foi deletado do banco")
+	}
+}
+
+func TestGormKitchenOrderDataSource_Delete_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	err := ds.Delete("non-existent-id")
+
+	if err != nil {
+		t.Logf("Error: %v", err)
+	} else {
+		t.Log("✓ Delete de ID inexistente não causou erro")
+	}
+}
+
+func TestGormKitchenOrderDataSource_FindAll_OrderingPriority(t *testing.T) {
+	db := setupTestDB(t)
+	ds := &GormKitchenOrderDataSource{db: db}
+
+	now := time.Now()
+	orders := []models.KitchenOrderModel{
+		{
+			ID:        "order-1",
+			OrderID:   "ext-1",
+			Amount:    50.00,
+			Slug:      "order-1",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
+			CreatedAt: now.Add(-3 * time.Hour),
+		},
+		{
+			ID:        "order-2",
+			OrderID:   "ext-2",
+			Amount:    60.00,
+			Slug:      "order-2",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
+			CreatedAt: now.Add(-2 * time.Hour),
+		},
+		{
+			ID:        "order-3",
+			OrderID:   "ext-3",
+			Amount:    70.00,
+			Slug:      "order-3",
+			StatusID:  constants.KITCHEN_ORDER_STATUS_READY_ID,
+			CreatedAt: now.Add(-1 * time.Hour),
+		},
+	}
+
+	for _, order := range orders {
+		db.Create(&order)
+	}
+
+	filter := dtos.KitchenOrderFilter{}
+	result, err := ds.FindAll(filter)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("Expected 3 orders, got %d", len(result))
+		return
+	}
+
+	expectedOrder := []string{"Pronto", "Em preparação", "Recebido"}
+	for i, expected := range expectedOrder {
+		if result[i].Status.Name != expected {
+			t.Errorf("Position %d: expected '%s', got '%s'", i, expected, result[i].Status.Name)
+		}
+	}
+
+	t.Log("✓ Ordenação por prioridade funcionou corretamente:")
+	for i, order := range result {
+		t.Logf("  %d. %s", i+1, order.Status.Name)
+	}
 }

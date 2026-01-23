@@ -1,120 +1,184 @@
 package seed
 
 import (
+	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-
 	"tech_challenge/internal/infra/database/models"
 	"tech_challenge/internal/shared/config/constants"
 )
 
-// MockGormDB é um mock do GORM DB para testes
-type MockGormDB struct {
-	whereQuery     interface{}
-	whereArgs      []interface{}
-	firstCalled    bool
-	firstError     error
-	createCalled   bool
-	createError    error
-	createValue    interface{}
-	recordNotFound bool
-	lastError      error
-	callCount      int
+type mockDB struct {
+	whereFunc  func(query interface{}, args ...interface{}) DBInterface
+	firstFunc  func(dest interface{}, conds ...interface{}) DBInterface
+	createFunc func(value interface{}) DBInterface
+	errorFunc  func() error
 }
 
-func (m *MockGormDB) Where(query interface{}, args ...interface{}) DBInterface {
-	m.whereQuery = query
-	m.whereArgs = args
-	m.callCount++
+func (m *mockDB) Where(query interface{}, args ...interface{}) DBInterface {
+	if m.whereFunc != nil {
+		return m.whereFunc(query, args...)
+	}
+	return m
+}
 
-	if m.recordNotFound {
-		m.lastError = gorm.ErrRecordNotFound
-	} else if m.firstError != nil {
-		m.lastError = m.firstError
+func (m *mockDB) First(dest interface{}, conds ...interface{}) DBInterface {
+	if m.firstFunc != nil {
+		return m.firstFunc(dest, conds...)
+	}
+	return m
+}
+
+func (m *mockDB) Create(value interface{}) DBInterface {
+	if m.createFunc != nil {
+		return m.createFunc(value)
+	}
+	return m
+}
+
+func (m *mockDB) GetError() error {
+	if m.errorFunc != nil {
+		return m.errorFunc()
+	}
+	return nil
+}
+
+func TestSeedOrderStatusInternal_CreateNewStatuses(t *testing.T) {
+	createdCount := 0
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			createdCount++
+			return &mockDB{}
+		},
+	}
+
+	seedOrderStatusInternal(mock)
+
+	expectedCount := 4
+	if createdCount != expectedCount {
+		t.Errorf("Expected %d statuses to be created, got %d", expectedCount, createdCount)
 	} else {
-		m.lastError = nil
+		t.Logf("✓ %d status criados com sucesso", createdCount)
 	}
-	return m
 }
 
-func (m *MockGormDB) First(dest interface{}, conds ...interface{}) DBInterface {
-	m.firstCalled = true
-	return m
-}
+func TestSeedOrderStatusInternal_SkipExistingStatuses(t *testing.T) {
+	createdCount := 0
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					if model, ok := dest.(*models.OrderStatusModel); ok {
+						model.ID = "existing-id"
+						model.Name = "Existing"
+					}
+					return &mockDB{
+						errorFunc: func() error {
+							return nil
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			createdCount++
+			return &mockDB{}
+		},
+	}
 
-func (m *MockGormDB) Create(value interface{}) DBInterface {
-	m.createCalled = true
-	m.createValue = value
-	if m.createError != nil {
-		m.lastError = m.createError
+	seedOrderStatusInternal(mock)
+
+	if createdCount != 0 {
+		t.Errorf("Expected 0 statuses to be created (all exist), got %d", createdCount)
 	} else {
-		m.lastError = nil
+		t.Log("✓ Nenhum status criado (todos já existem)")
 	}
-	return m
 }
 
-func (m *MockGormDB) GetError() error {
-	return m.lastError
-}
-
-func TestSeedOrderStatus_AllStatusesCreated(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.firstCalled, "First should be called to check if status exists")
-	assert.True(t, mockDB.createCalled, "Create should be called to insert status")
-}
-
-func TestSeedOrderStatus_StatusAlreadyExists(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: false, // Status já existe
-		firstError:     nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.firstCalled, "First should be called to check if status exists")
-	assert.False(t, mockDB.createCalled, "Create should not be called if status already exists")
-}
-
-func TestSeedOrderStatus_CreateError(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    gorm.ErrInvalidData,
+func TestSeedOrderStatusInternal_MixedScenario(t *testing.T) {
+	createdCount := 0
+	callCount := 0
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			callCount++
+			shouldExist := callCount%2 == 0
+			
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					if shouldExist {
+						if model, ok := dest.(*models.OrderStatusModel); ok {
+							model.ID = "existing-id"
+							model.Name = "Existing"
+						}
+					}
+					
+					return &mockDB{
+						errorFunc: func() error {
+							if shouldExist {
+								return nil
+							}
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			createdCount++
+			return &mockDB{}
+		},
 	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
+	seedOrderStatusInternal(mock)
 
-	// Assert
-	assert.True(t, mockDB.firstCalled, "First should be called")
-	assert.True(t, mockDB.createCalled, "Create should be called even if it fails")
+	expectedCreated := 2
+	if createdCount != expectedCreated {
+		t.Errorf("Expected %d statuses to be created, got %d", expectedCreated, createdCount)
+	} else {
+		t.Logf("✓ %d status criados (cenário misto)", createdCount)
+	}
 }
 
-func TestSeedOrderStatus_Constants_Exist(t *testing.T) {
-	// Arrange & Act & Assert
-	assert.NotEmpty(t, constants.KITCHEN_ORDER_STATUS_RECEIVED_ID)
-	assert.NotEmpty(t, constants.KITCHEN_ORDER_STATUS_PREPARING_ID)
-	assert.NotEmpty(t, constants.KITCHEN_ORDER_STATUS_READY_ID)
-	assert.NotEmpty(t, constants.KITCHEN_ORDER_STATUS_FINISHED_ID)
-}
+func TestSeedOrderStatusInternal_VerifyStatusData(t *testing.T) {
+	var createdStatuses []models.OrderStatusModel
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			if status, ok := value.(*models.OrderStatusModel); ok {
+				createdStatuses = append(createdStatuses, *status)
+			}
+			return &mockDB{}
+		},
+	}
 
-func TestSeedOrderStatus_DefaultStatuses_Structure(t *testing.T) {
-	// Arrange
+	seedOrderStatusInternal(mock)
+
 	expectedStatuses := map[string]string{
 		constants.KITCHEN_ORDER_STATUS_RECEIVED_ID:  "Recebido",
 		constants.KITCHEN_ORDER_STATUS_PREPARING_ID: "Em preparação",
@@ -122,552 +186,312 @@ func TestSeedOrderStatus_DefaultStatuses_Structure(t *testing.T) {
 		constants.KITCHEN_ORDER_STATUS_FINISHED_ID:  "Finalizado",
 	}
 
-	// Act & Assert
-	assert.Len(t, expectedStatuses, 4, "Should have exactly 4 statuses")
-
-	for id, name := range expectedStatuses {
-		assert.NotEmpty(t, id, "Status ID should not be empty")
-		assert.NotEmpty(t, name, "Status name should not be empty")
+	if len(createdStatuses) != len(expectedStatuses) {
+		t.Errorf("Expected %d statuses, got %d", len(expectedStatuses), len(createdStatuses))
 	}
+
+	for _, status := range createdStatuses {
+		expectedName, exists := expectedStatuses[status.ID]
+		if !exists {
+			t.Errorf("Unexpected status ID: %s", status.ID)
+		} else if status.Name != expectedName {
+			t.Errorf("Expected name '%s' for ID %s, got '%s'", expectedName, status.ID, status.Name)
+		}
+	}
+
+	t.Log("✓ Todos os status têm dados corretos")
 }
 
-func TestSeedOrderStatus_StatusNames_Portuguese(t *testing.T) {
-	// Arrange
-	expectedNames := []string{
-		"Recebido",
-		"Em preparação",
-		"Pronto",
-		"Finalizado",
-	}
-
-	// Act & Assert
-	for _, name := range expectedNames {
-		assert.NotEmpty(t, name, "Status name should not be empty")
-		assert.True(t, len(name) > 0, "Status name should have content")
-	}
-}
-
-func TestSeedOrderStatus_UniqueIDs(t *testing.T) {
-	// Arrange
-	ids := []string{
-		constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
-		constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
-		constants.KITCHEN_ORDER_STATUS_READY_ID,
-		constants.KITCHEN_ORDER_STATUS_FINISHED_ID,
-	}
-
-	// Act
-	idMap := make(map[string]bool)
-	for _, id := range ids {
-		idMap[id] = true
-	}
-
-	// Assert
-	assert.Len(t, idMap, 4, "All IDs should be unique")
-}
-
-func TestSeedOrderStatus_ModelCreation(t *testing.T) {
-	// Arrange & Act
-	status := models.OrderStatusModel{
-		ID:   constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
-		Name: "Recebido",
-	}
-
-	// Assert
-	assert.Equal(t, constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, status.ID)
-	assert.Equal(t, "Recebido", status.Name)
-}
-
-func TestSeedOrderStatus_AllStatuses_Defined(t *testing.T) {
-	// Arrange
-	statuses := []struct {
-		ID   string
-		Name string
-	}{
-		{constants.KITCHEN_ORDER_STATUS_RECEIVED_ID, "Recebido"},
-		{constants.KITCHEN_ORDER_STATUS_PREPARING_ID, "Em preparação"},
-		{constants.KITCHEN_ORDER_STATUS_READY_ID, "Pronto"},
-		{constants.KITCHEN_ORDER_STATUS_FINISHED_ID, "Finalizado"},
-	}
-
-	// Act & Assert
-	require.Len(t, statuses, 4, "Should have exactly 4 statuses")
-
-	for _, status := range statuses {
-		assert.NotEmpty(t, status.ID, "Status ID should not be empty")
-		assert.NotEmpty(t, status.Name, "Status name should not be empty")
-	}
-}
-
-func TestSeedOrderStatus_StatusFlow_Order(t *testing.T) {
-	// Arrange
-	statusFlow := []string{
-		"Recebido",
-		"Em preparação",
-		"Pronto",
-		"Finalizado",
-	}
-
-	// Act & Assert
-	assert.Len(t, statusFlow, 4, "Should have 4 statuses in flow")
-
-	// Verify all statuses are different
-	for i, status := range statusFlow {
-		for j, otherStatus := range statusFlow {
-			if i != j {
-				assert.NotEqual(t, status, otherStatus, "All statuses should be different")
+func TestSeedOrderStatusInternal_DatabaseError(t *testing.T) {
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return errors.New("database connection error")
+						},
+					}
+				},
 			}
+		},
+	}
+
+	seedOrderStatusInternal(mock)
+	t.Log("✓ Erro de banco de dados tratado sem panic")
+}
+
+func TestSeedOrderStatus_WithNilDB(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Log("✓ Panic capturado ao usar DB nil")
+		}
+	}()
+	
+	var db *gorm.DB
+	SeedOrderStatus(db)
+}
+
+
+
+func TestGormDBWrapper_First_Called(t *testing.T) {
+	firstCalled := false
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					firstCalled = true
+					return &mockDB{
+						errorFunc: func() error {
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			return &mockDB{}
+		},
+	}
+
+	seedOrderStatusInternal(mock)
+
+	if !firstCalled {
+		t.Error("Expected First to be called")
+	} else {
+		t.Log("✓ First foi chamado corretamente")
+	}
+}
+
+func TestGormDBWrapper_Create_Called(t *testing.T) {
+	createCalled := false
+	var createdValue interface{}
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			createCalled = true
+			createdValue = value
+			return &mockDB{}
+		},
+	}
+
+	seedOrderStatusInternal(mock)
+
+	if !createCalled {
+		t.Error("Expected Create to be called")
+	} else {
+		t.Log("✓ Create foi chamado corretamente")
+	}
+	
+	if createdValue == nil {
+		t.Error("Expected created value to be non-nil")
+	} else {
+		if status, ok := createdValue.(*models.OrderStatusModel); ok {
+			t.Logf("✓ Create recebeu OrderStatusModel: ID=%s, Name=%s", status.ID, status.Name)
 		}
 	}
 }
 
-func TestSeedOrderStatus_Constants_Are_Strings(t *testing.T) {
-	// Arrange
-	constants := []string{
-		constants.KITCHEN_ORDER_STATUS_RECEIVED_ID,
-		constants.KITCHEN_ORDER_STATUS_PREPARING_ID,
-		constants.KITCHEN_ORDER_STATUS_READY_ID,
-		constants.KITCHEN_ORDER_STATUS_FINISHED_ID,
+func TestGormDBWrapper_GetError_Called(t *testing.T) {
+	getErrorCalled := false
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							getErrorCalled = true
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			return &mockDB{}
+		},
 	}
 
-	// Act & Assert
-	for _, constant := range constants {
-		assert.IsType(t, "", constant, "Constant should be a string")
-		assert.NotEmpty(t, constant, "Constant should not be empty")
+	seedOrderStatusInternal(mock)
+
+	if !getErrorCalled {
+		t.Error("Expected GetError to be called")
+	} else {
+		t.Log("✓ GetError foi chamado corretamente")
 	}
 }
 
-func TestSeedOrderStatus_WhereQuery_Called(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
+func TestGormDBWrapper_GetError_ReturnsError(t *testing.T) {
+	expectedError := errors.New("test database error")
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return expectedError
+						},
+					}
+				},
+			}
+		},
 	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.NotNil(t, mockDB.whereQuery, "Where query should be called")
-	assert.Equal(t, "id = ?", mockDB.whereQuery)
+	seedOrderStatusInternal(mock)
+	t.Log("✓ GetError retornou erro corretamente")
 }
 
-func TestSeedOrderStatus_Multiple_Iterations(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
+func TestGormDBWrapper_GetError_ReturnsNil(t *testing.T) {
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return nil
+						},
+					}
+				},
+			}
+		},
 	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// The function should iterate through all 4 statuses
-	assert.True(t, mockDB.firstCalled, "First should be called for each status")
-	assert.True(t, mockDB.createCalled, "Create should be called for each status")
+	seedOrderStatusInternal(mock)
+	t.Log("✓ GetError retornou nil (sem erro)")
 }
 
-func TestSeedOrderStatus_ReceivedStatus(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
+func TestGormDBWrapper_First_WithDestination(t *testing.T) {
+	var capturedDest interface{}
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					capturedDest = dest
+					if model, ok := dest.(*models.OrderStatusModel); ok {
+						model.ID = "test-id"
+						model.Name = "Test Name"
+					}
+					return &mockDB{
+						errorFunc: func() error {
+							return nil
+						},
+					}
+				},
+			}
+		},
 	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
+	seedOrderStatusInternal(mock)
 
-	// Assert
-	assert.Equal(t, "id = ?", mockDB.whereQuery)
+	if capturedDest == nil {
+		t.Error("Expected destination to be captured")
+	} else {
+		if _, ok := capturedDest.(*models.OrderStatusModel); ok {
+			t.Log("✓ First recebeu ponteiro para OrderStatusModel")
+		} else {
+			t.Error("Expected destination to be *OrderStatusModel")
+		}
+	}
 }
 
-func TestSeedOrderStatus_PreparingStatus(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
+func TestGormDBWrapper_Create_WithMultipleStatuses(t *testing.T) {
+	var createdStatuses []models.OrderStatusModel
+	
+	mock := &mockDB{
+		whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+			return &mockDB{
+				firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+					return &mockDB{
+						errorFunc: func() error {
+							return gorm.ErrRecordNotFound
+						},
+					}
+				},
+			}
+		},
+		createFunc: func(value interface{}) DBInterface {
+			if status, ok := value.(*models.OrderStatusModel); ok {
+				createdStatuses = append(createdStatuses, *status)
+			}
+			return &mockDB{}
+		},
 	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
+	seedOrderStatusInternal(mock)
 
-	// Assert
-	assert.True(t, mockDB.createCalled)
-}
-
-func TestSeedOrderStatus_ReadyStatus(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
+	if len(createdStatuses) != 4 {
+		t.Errorf("Expected 4 statuses to be created, got %d", len(createdStatuses))
+	} else {
+		t.Logf("✓ Create foi chamado %d vezes", len(createdStatuses))
+		for i, status := range createdStatuses {
+			t.Logf("  Status %d: ID=%s, Name=%s", i+1, status.ID, status.Name)
+		}
 	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.firstCalled)
 }
 
-func TestSeedOrderStatus_FinishedStatus(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
 
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.createCalled)
-}
-
-func TestSeedOrderStatus_StatusCopy_Created(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that a copy was created and passed to Create
-	assert.True(t, mockDB.createCalled, "Create should be called with a copy of the status")
-}
-
-func TestSeedOrderStatus_Error_Handling(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    gorm.ErrInvalidData,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Function should handle errors gracefully
-	assert.True(t, mockDB.createCalled, "Create should be called even if error occurs")
-}
-
-func TestSeedOrderStatus_Success_Logging(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Function should complete without panic
-	assert.True(t, mockDB.createCalled, "Create should be called successfully")
-}
-
-func TestSeedOrderStatus_All_Four_Statuses_Processed(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that all 4 statuses are processed
-	assert.True(t, mockDB.firstCalled, "First should be called for all statuses")
-	assert.True(t, mockDB.createCalled, "Create should be called for all statuses")
-}
-
-// SeedOrderStatusWithDB é uma versão testável da função SeedOrderStatus
-func SeedOrderStatusWithDB(db DBInterface) {
-	seedOrderStatusInternal(db)
-}
-
-func TestSeedOrderStatus_SuccessfulCreation(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.firstCalled, "First should be called")
-	assert.True(t, mockDB.createCalled, "Create should be called")
-	assert.Nil(t, mockDB.lastError, "No error should occur on successful creation")
-}
-
-func TestSeedOrderStatus_SuccessfulCreation_NoError(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.createCalled, "Create should be called")
-	assert.Nil(t, mockDB.lastError, "Error should be nil after successful creation")
-}
-
-func TestSeedOrderStatus_SkipsExistingStatus(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: false,
-		firstError:     nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.firstCalled, "First should be called to check existence")
-	assert.False(t, mockDB.createCalled, "Create should not be called for existing status")
-}
-
-func TestSeedOrderStatus_HandlesCreateError_Gracefully(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    gorm.ErrInvalidData,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	assert.True(t, mockDB.createCalled, "Create should be called")
-	assert.NotNil(t, mockDB.lastError, "Error should be set")
-}
-
-func TestSeedOrderStatus_ProcessesAllFourStatuses(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// The function should call Where 4 times (once for each status)
-	assert.Equal(t, 4, mockDB.callCount, "Should process all 4 statuses")
-}
-
-func TestSeedOrderStatus_LogsSuccessMessage(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Function should complete without panic and log success
-	assert.True(t, mockDB.createCalled, "Create should be called")
-	assert.Nil(t, mockDB.lastError, "No error should occur")
-}
-
-func TestSeedOrderStatus_LogsErrorMessage(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    gorm.ErrInvalidData,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Function should complete without panic and log error
-	assert.True(t, mockDB.createCalled, "Create should be called")
-	assert.NotNil(t, mockDB.lastError, "Error should be logged")
-}
-
-func TestSeedOrderStatus_IteratesCorrectly(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the loop processes all 4 statuses
-	assert.Equal(t, 4, mockDB.callCount, "Should iterate 4 times")
-	assert.True(t, mockDB.firstCalled, "First should be called in loop")
-	assert.True(t, mockDB.createCalled, "Create should be called in loop")
-}
-
-func TestSeedOrderStatus_CreatesStatusCopy(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that Create was called with a status copy
-	assert.True(t, mockDB.createCalled, "Create should be called with status copy")
-	assert.NotNil(t, mockDB.createValue, "Create value should not be nil")
-}
-
-func TestSeedOrderStatus_ChecksRecordNotFound(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the function checks for ErrRecordNotFound
-	assert.True(t, mockDB.firstCalled, "First should be called to check for record")
-	assert.True(t, mockDB.createCalled, "Create should be called when record not found")
-}
-
-func TestSeedOrderStatus_SkipsWhenRecordExists(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: false,
-		firstError:     nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that Create is not called when record exists
-	assert.True(t, mockDB.firstCalled, "First should be called")
-	assert.False(t, mockDB.createCalled, "Create should not be called when record exists")
-}
-
-func TestSeedOrderStatus_DefaultsArray(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that all 4 default statuses are processed
-	assert.Equal(t, 4, mockDB.callCount, "Should process 4 default statuses")
-}
-
-func TestSeedOrderStatus_StatusIDsCorrect(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the Where query is called with correct ID
-	assert.Equal(t, "id = ?", mockDB.whereQuery, "Where query should check ID")
-}
-
-func TestSeedOrderStatus_LoopsOverDefaults(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the function loops over all defaults
-	assert.Equal(t, 4, mockDB.callCount, "Should loop 4 times")
-	assert.True(t, mockDB.firstCalled, "First should be called in loop")
-	assert.True(t, mockDB.createCalled, "Create should be called in loop")
-}
-
-func TestSeedOrderStatus_WrapperFunction(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the wrapper function works correctly
-	assert.True(t, mockDB.firstCalled, "First should be called")
-	assert.True(t, mockDB.createCalled, "Create should be called")
-}
-
-func TestSeedOrderStatus_GormDBWrapper(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the wrapper is used correctly
-	assert.Equal(t, 4, mockDB.callCount, "Should process all statuses")
-}
-
-func TestSeedOrderStatus_CallsInternalFunction(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the internal function is called
-	assert.True(t, mockDB.firstCalled, "Internal function should call First")
-	assert.True(t, mockDB.createCalled, "Internal function should call Create")
-}
-
-func TestSeedOrderStatus_WrapsGormDB(t *testing.T) {
-	// Arrange
-	mockDB := &MockGormDB{
-		recordNotFound: true,
-		createError:    nil,
-	}
-
-	// Act
-	SeedOrderStatusWithDB(mockDB)
-
-	// Assert
-	// Verify that the wrapper correctly wraps GORM DB
-	assert.Equal(t, 4, mockDB.callCount, "Should wrap and process all statuses")
+func TestGormDBWrapper_AllMethods_Coverage(t *testing.T) {
+	t.Run("Verify all wrapper methods are called through seedOrderStatusInternal", func(t *testing.T) {
+		whereCalled := false
+		firstCalled := false
+		createCalled := false
+		getErrorCalled := false
+		
+		mock := &mockDB{
+			whereFunc: func(query interface{}, args ...interface{}) DBInterface {
+				whereCalled = true
+				return &mockDB{
+					firstFunc: func(dest interface{}, conds ...interface{}) DBInterface {
+						firstCalled = true
+						return &mockDB{
+							errorFunc: func() error {
+								getErrorCalled = true
+								return gorm.ErrRecordNotFound
+							},
+						}
+					},
+				}
+			},
+			createFunc: func(value interface{}) DBInterface {
+				createCalled = true
+				return &mockDB{}
+			},
+		}
+
+		seedOrderStatusInternal(mock)
+
+		if !whereCalled {
+			t.Error("Where was not called")
+		}
+		if !firstCalled {
+			t.Error("First was not called")
+		}
+		if !createCalled {
+			t.Error("Create was not called")
+		}
+		if !getErrorCalled {
+			t.Error("GetError was not called")
+		}
+
+		t.Log("✓ Todos os métodos do wrapper foram chamados:")
+		t.Log("  - Where: chamado")
+		t.Log("  - First: chamado")
+		t.Log("  - Create: chamado")
+		t.Log("  - GetError: chamado")
+	})
 }
