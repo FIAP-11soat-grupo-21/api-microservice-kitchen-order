@@ -22,6 +22,10 @@ module "kitchen_order_api" {
       AWS_SQS_KITCHEN_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_queue_url
       AWS_SQS_ORDERS_QUEUE : data.terraform_remote_state.infra.outputs.sqs_orders_queue_url
       AWS_SQS_KITCHEN_ORDERS_ERROR_QUEUE : data.terraform_remote_state.infra.outputs.sqs_kitchen_orders_order_error_queue_url
+
+      # SNS Topics
+      AWS_SNS_KITCHEN_ORDER_FINISHED_TOPIC_ARN : data.terraform_remote_state.infra.outputs.sns_kitchen_order_finished_topic_arn
+      AWS_SNS_ORDER_ERROR_TOPIC_ARN : data.terraform_remote_state.infra.outputs.sns_order_error_topic_arn
   })
   ecs_container_secrets = merge(var.container_secrets,
     {
