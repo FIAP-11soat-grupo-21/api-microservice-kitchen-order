@@ -59,7 +59,6 @@ func (s *SQSBroker) Connect(ctx context.Context) error {
 		config.WithRegion(s.config.Region),
 	}
 
-	// Se tiver endpoint customizado (LocalStack), adiciona
 	if s.config.EndpointURL != "" {
 		configOptions = append(configOptions, config.WithEndpointResolverWithOptions(
 			aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
@@ -69,6 +68,8 @@ func (s *SQSBroker) Connect(ctx context.Context) error {
 				}, nil
 			}),
 		))
+		
+		log.Println("Using LocalStack endpoint, loading credentials from environment")
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx, configOptions...)
@@ -184,9 +185,15 @@ func (s *SQSBroker) processMessage(ctx context.Context, msg types.Message, handl
 		}
 	}
 
+	body, err := s.unmarshalMessageBody(msg)
+	if err != nil {
+		log.Printf("Error unmarshaling message body: %v", err)
+		return
+	}
+
 	message := interfaces.Message{
 		ID:      *msg.MessageId,
-		Body:    []byte(*msg.Body),
+		Body:    body,
 		Headers: headers,
 	}
 
@@ -195,7 +202,7 @@ func (s *SQSBroker) processMessage(ctx context.Context, msg types.Message, handl
 		return
 	}
 
-	_, err := s.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
+	_, err = s.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(s.config.QueueURL),
 		ReceiptHandle: msg.ReceiptHandle,
 	})
@@ -219,4 +226,26 @@ func SerializeMessage(data interface{}) ([]byte, error) {
 
 func DeserializeMessage(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
+}
+
+type SNSNotification struct {
+	Type             string `json:"Type"`
+	MessageId        string `json:"MessageId"`
+	TopicArn         string `json:"TopicArn"`
+	Message          string `json:"Message"`
+	Timestamp        string `json:"Timestamp"`
+	SignatureVersion string `json:"SignatureVersion"`
+	Signature        string `json:"Signature"`
+	SigningCertURL   string `json:"SigningCertURL"`
+	UnsubscribeURL   string `json:"UnsubscribeURL"`
+}
+
+func (s *SQSBroker) unmarshalMessageBody(message types.Message) ([]byte, error) {
+	var snsNotification SNSNotification
+	if err := json.Unmarshal([]byte(*message.Body), &snsNotification); err == nil && snsNotification.Type != "" {
+		log.Printf("Unwrapping SNS message from topic: %s", snsNotification.TopicArn)
+		return []byte(snsNotification.Message), nil
+	}
+
+	return []byte(*message.Body), nil
 }

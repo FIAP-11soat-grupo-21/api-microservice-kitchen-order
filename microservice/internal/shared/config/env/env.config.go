@@ -37,6 +37,10 @@ type Config struct {
 			QueueURL       string
 			OrdersQueueURL string
 		}
+		SNS struct {
+			KitchenOrderFinishedTopicARN string
+			OrderErrorTopicARN           string
+		}
 	}
 }
 
@@ -96,6 +100,9 @@ func (c *Config) Load() {
 		if c.MessageBroker.SQS.OrdersQueueURL == "" {
 			c.MessageBroker.SQS.OrdersQueueURL = getEnv("AWS_SQS_ORDERS_QUEUE")
 		}
+		
+		c.MessageBroker.SNS.KitchenOrderFinishedTopicARN = os.Getenv("AWS_SNS_KITCHEN_ORDER_FINISHED_TOPIC_ARN")
+		c.MessageBroker.SNS.OrderErrorTopicARN = os.Getenv("AWS_SNS_ORDER_ERROR_TOPIC_ARN")
 	}
 }
 
