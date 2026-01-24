@@ -44,7 +44,7 @@ authorization_name = "CognitoAuthorizer"
 # Configurações do SQS
 # =======================================================
 sqs_delay_seconds              = 0
-sqs_message_retention_seconds  = 86400 # 1 dia
+sqs_message_retention_seconds  = 86405 # 1 dia
 sqs_receive_wait_time_seconds  = 10
 sqs_visibility_timeout_seconds = 30
 
