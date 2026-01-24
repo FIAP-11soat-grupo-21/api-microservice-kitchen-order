@@ -100,6 +100,9 @@ func (s *SQSBroker) Publish(ctx context.Context, queue string, message interface
 		return fmt.Errorf("not connected to SQS")
 	}
 
+	log.Printf("Publishing message to queue: %s", queue)
+	log.Printf("Message payload: %s", string(message.Body))
+
 	messageAttributes := make(map[string]types.MessageAttributeValue)
 	for k, v := range message.Headers {
 		messageAttributes[k] = types.MessageAttributeValue{
@@ -108,15 +111,10 @@ func (s *SQSBroker) Publish(ctx context.Context, queue string, message interface
 		}
 	}
 
-	if message.ID == "" {
-		message.ID = fmt.Sprintf("msg-%d", len(message.Body))
-	}
-
 	_, err := s.client.SendMessage(ctx, &sqs.SendMessageInput{
-		QueueUrl:          aws.String(s.config.QueueURL),
+		QueueUrl:          aws.String(queue),
 		MessageBody:       aws.String(string(message.Body)),
 		MessageAttributes: messageAttributes,
-		MessageGroupId:    aws.String(message.ID),
 	})
 
 	if err != nil {
